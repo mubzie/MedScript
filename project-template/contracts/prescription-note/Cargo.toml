@@ -1,0 +1,22 @@
+[package]
+name = "prescription-note"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+miden = { version = "0.10" }
+
+[package.metadata.component]
+package = "miden:prescription-note"
+
+[package.metadata.miden.dependencies]
+"miden:pharmacist-account" = { path = "../pharmacist-account" }
+
+[package.metadata.component.target.dependencies]
+"miden:pharmacist-account" = { path = "../pharmacist-account/target/generated-wit/" }
+
+[package.metadata.miden]
+project-kind = "note-script"

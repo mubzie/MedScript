@@ -1,0 +1,22 @@
+[package]
+name = "fulfillment-note"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+miden = { version = "0.10" }
+
+[package.metadata.component]
+package = "miden:fulfillment-note"
+
+[package.metadata.miden.dependencies]
+"miden:doctor-account" = { path = "../doctor-account" }
+
+[package.metadata.component.target.dependencies]
+"miden:doctor-account" = { path = "../doctor-account/target/generated-wit/" }
+
+[package.metadata.miden]
+project-kind = "note-script"
