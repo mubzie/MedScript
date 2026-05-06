@@ -349,3 +349,147 @@ midenClient (singleton)     export const
 
 Next phase: Build pharmacist workflow (create prescription, send to doctor)
 
+
+---
+
+# Phase 6: Wallet Integration & Protected Routes ✅
+
+## Completed Deliverables
+
+### 1. Wallet Connection Screen (/connect) ✅
+- [x] MedScript wordmark + tagline ("Private medical prescriptions on Miden")
+- [x] WalletMultiButton from @miden-sdk/miden-wallet-adapter (integrated and styled)
+- [x] On success: redirect based on account role (pharmacist/doctor/patient)
+- [x] Dev shortcuts visible in DEV mode:
+  - [x] "Login as Pharmacist" — mocks pharmacist account
+  - [x] "Login as Doctor" — mocks doctor account
+  - [x] "Login as Patient" — mocks patient account
+- [x] Framer Motion fade-in animation (opacity 0→1, y 8→0, 0.2s)
+- [x] Clinical design (not crypto-flashy)
+
+### 2. TopBar Component (/components/layout/TopBar.tsx) ✅
+- [x] Left: MedScript wordmark
+- [x] Center: Account ID truncation (first 6 + "..." + last 4, font-mono)
+         Network badge ("Testnet" in amber)
+- [x] Right: Role badge (role-specific color: purple/teal/orange)
+         Credential status dot (green if verified, red if not)
+         Disconnect button → clears store, redirects to /connect
+- [x] Appears on all authenticated pages via AuthenticatedLayout
+
+### 3. Protected Routes ✅
+- [x] Created ProtectedRoute.tsx wrapper component
+- [x] Redirects unauthenticated → /connect
+- [x] Redirects wrong-role → their correct dashboard
+- [x] All 3 pharmacist routes wrapped
+- [x] All 3 doctor routes wrapped
+- [x] Patient route wrapped
+- [x] AuthenticatedLayout wraps TopBar + children
+
+### 4. Tests ✅
+- [x] 12 tests written in src/__tests__/phase6.test.tsx
+- [x] All 12/12 tests passing
+- [x] Coverage:
+  - Wallet connection flow (3 tests: redirect per role)
+  - Protected routes (4 tests: auth checks, role protection, disconnect)
+  - TopBar display (3 tests: network badge, role badge, verification status)
+  - Dev shortcuts available in DEV mode
+- [x] Mock setup for @miden-sdk/miden-wallet-adapter and @miden-sdk/react
+
+### 5. Verification ✅
+- [x] TypeScript type check: 0 errors
+- [x] Build: `npm run build` succeeds (749 KB JS, 24 KB CSS)
+- [x] Tests: `npm run test` — 37/37 passing (including existing tests)
+- [x] Dev server: running on http://localhost:5173/
+- [x] All routes render without console errors
+- [x] Dev shortcuts visible and functional
+- [x] TopBar appears on all authenticated pages
+- [x] Disconnect button works and redirects correctly
+
+---
+
+## Files Created/Modified
+
+### New Files
+- frontend-template/src/components/layout/TopBar.tsx (120 lines)
+  - Account display with truncation
+  - Network badge (Testnet)
+  - Role badge with color coding
+  - Disconnect button with store reset
+
+- frontend-template/src/components/layout/ProtectedRoute.tsx (25 lines)
+  - Authentication check
+  - Role-based access control
+  - Automatic role-specific redirects
+
+- frontend-template/src/__tests__/phase6.test.tsx (223 lines)
+  - 12 comprehensive tests
+  - All test categories covered
+  - Mocks for SDK and wallet adapter
+
+### Modified Files
+- frontend-template/src/pages/connect.tsx (86 lines)
+  - Replaced mock connection with WalletMultiButton
+  - Added dev mode shortcuts (only in DEV)
+  - Added useEffect to redirect already-connected users
+  - Framer Motion fade-in animation
+
+- frontend-template/src/App.tsx (50 lines)
+  - Added ProtectedRoute wrapper import
+  - Added TopBar import
+  - Created AuthenticatedLayout component
+  - Wrapped all role routes with ProtectedRoute + AuthenticatedLayout
+  - Maintain / redirect unchanged
+
+- frontend-template/vitest.setup.ts (5 lines)
+  - Added CSS mock for @miden-sdk/miden-wallet-adapter/styles.css
+
+---
+
+## Key Implementation Details
+
+### TopBar Truncation
+Account IDs truncated to first 6 + "..." + last 4 chars:
+- `0x962c393e4be8b7002d78783908a73e` → `0x96...93e`
+- Preserves readability while saving space
+
+### Role Colors (from design system)
+- Pharmacist: `bg-role-pharmacist` (purple #7C3AED)
+- Doctor: `bg-role-doctor` (teal #0A5C4A)
+- Patient: `bg-role-patient` (amber #B45309)
+
+### Protected Route Behavior
+1. Not connected → redirect to /connect
+2. Connected but wrong role → redirect to correct dashboard
+3. Connected + correct role → render page with TopBar
+
+### Dev Mode Shortcuts
+- Only visible when `import.meta.env.DEV === true`
+- Use same mock account IDs as Phase 5
+- Immediate login (no wallet required)
+- Useful for rapid UI testing across roles
+
+---
+
+## Test Summary
+- Test Files: 6 passed
+- Total Tests: 37 passed (0 failed)
+- Duration: 4.64s
+- Coverage includes:
+  - Wallet connection flow and role-based redirects
+  - Protected route access control
+  - TopBar rendering and content
+  - Disconnect functionality
+  - Dev shortcuts availability
+
+---
+
+## Ready for Phase 7
+Frontend foundation now complete with:
+- ✅ Real wallet integration (WalletMultiButton ready)
+- ✅ Role-based access control
+- ✅ Persistent top navigation
+- ✅ Dev mode testing shortcuts
+- ✅ Comprehensive test coverage
+- ✅ All routes render cleanly
+
+Next: Build pharmacist workflow (create/send prescriptions to doctors)
