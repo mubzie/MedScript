@@ -1,75 +1,131 @@
-:root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
-}
-
-body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
-}
-
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
-}
-
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
-}
-
-#root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
-}
-
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
+@layer base {
+  html {
+    @apply scroll-smooth;
   }
-  a:hover {
-    color: #747bff;
+
+  body {
+    @apply bg-surface-base text-text-primary font-sans text-base antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
   }
+
+  h1 {
+    @apply text-4xl font-bold leading-tight;
+  }
+
+  h2 {
+    @apply text-3xl font-semibold leading-snug;
+  }
+
+  h3 {
+    @apply text-xl font-semibold leading-normal;
+  }
+
+  h4 {
+    @apply text-lg font-semibold leading-normal;
+  }
+
+  p {
+    @apply leading-relaxed;
+  }
+
+  code,
+  pre {
+    @apply font-mono text-sm tracking-wide;
+  }
+
+  a {
+    @apply text-primary-800 hover:text-primary-600 transition-colors;
+  }
+
   button {
-    background-color: #f9f9f9;
+    @apply transition-all duration-200;
   }
+
+  input,
+  textarea,
+  select {
+    @apply bg-surface-base text-text-primary border border-border-default rounded transition-colors;
+    &:focus {
+      @apply outline-none border-primary-600 ring-1 ring-primary-100;
+    }
+  }
+
+  /* Remove default scrollbar styling on Webkit browsers */
+  ::-webkit-scrollbar {
+    @apply w-2 h-2;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-surface-raised;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border-default rounded hover:bg-border-strong;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply px-4 py-2 rounded-lg bg-primary-800 text-text-inverse font-semibold hover:bg-primary-600 active:bg-primary-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply px-4 py-2 rounded-lg bg-surface-raised text-text-primary border border-border-default font-semibold hover:bg-surface-sunken active:bg-surface-raised transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-destructive {
+    @apply px-4 py-2 rounded-lg bg-status-high text-text-inverse font-semibold hover:opacity-90 active:opacity-100 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .card {
+    @apply bg-surface-base border border-border-default rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow;
+  }
+
+  .badge {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold;
+  }
+
+  .badge-status {
+    @apply badge bg-status-normal/10 text-status-normal;
+  }
+
+  .badge-role {
+    @apply badge text-text-inverse;
+  }
+
+  .input-field {
+    @apply w-full px-4 py-2 rounded-lg bg-surface-raised border border-border-default text-text-primary placeholder-text-tertiary focus:outline-none focus:border-primary-600 focus:ring-1 focus:ring-primary-100 transition-all;
+  }
+
+  .text-truncate-lines {
+    display: -webkit-box;
+    -webkit-line-clamp: var(--lines, 2);
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .glass {
+    @apply bg-white/90 backdrop-blur-sm;
+  }
+}
+
+/* Utilities */
+.visually-hidden {
+  @apply absolute w-1 h-1 p-0 -m-1 overflow-hidden border-0 whitespace-nowrap;
+}
+
+.flex-center {
+  @apply flex items-center justify-center;
+}
+
+.flex-between {
+  @apply flex items-center justify-between;
+}
+
+.transition-smooth {
+  @apply transition-all duration-200 ease-in-out;
 }
