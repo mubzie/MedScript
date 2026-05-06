@@ -64,6 +64,42 @@ pub async fn setup_client() -> Result<ClientSetup> {
     Ok(ClientSetup { client, keystore })
 }
 
+/// Initializes local test infrastructure with client and keystore for local node
+///
+/// # Returns
+/// A `ClientSetup` containing the initialized client and keystore configured for localhost
+///
+/// # Errors
+/// Returns an error if RPC connection fails, keystore initialization fails,
+/// or client building fails
+pub async fn setup_local_client() -> Result<ClientSetup> {
+    // Initialize RPC connection to local node
+    let endpoint = Endpoint::new("http".into(), "localhost".into(), Some(57291));
+    let timeout_ms = 10_000;
+    let rpc_client = Arc::new(GrpcClient::new(&endpoint, timeout_ms));
+
+    // Initialize keystore with separate path for local testing
+    let keystore_path = std::path::PathBuf::from("../local-keystore");
+
+    let keystore = Arc::new(
+        FilesystemKeyStore::new(keystore_path)
+            .context("Failed to initialize local keystore")?,
+    );
+
+    let store_path = std::path::PathBuf::from("../local-store.sqlite3");
+
+    let client = ClientBuilder::new()
+        .rpc(rpc_client)
+        .sqlite_store(store_path)
+        .authenticator(keystore.clone())
+        .in_debug_mode(true.into())
+        .build()
+        .await
+        .context("Failed to build local Miden client")?;
+
+    Ok(ClientSetup { client, keystore })
+}
+
 /// Builds a Miden project in the specified directory
 ///
 /// # Arguments

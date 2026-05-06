@@ -219,3 +219,140 @@ assert!(!executed_tx.input_notes().is_empty());
 - Full consumption validation deferred to local-node
 
 **Rationale**: MockChain is excellent for rapid development and happy-path testing, but consumption conditions require a full blockchain context (block height, account lookups). Phase 3 uses local Miden node for complete validation.
+
+---
+
+## Phase 3: Local-Node Validation Patterns
+
+### Node vs MockChain: Critical Differences
+
+| Feature | MockChain | Local Node |
+|---------|-----------|-----------|
+| Version matching | Not required | **CRITICAL** - must match miden-node and miden-client versions |
+| Account registration | Implicit | **Must participate in on-chain transaction** |
+| Account interfaces | All accounts can publish notes | **Only BasicWallet/BasicFungibleFaucet can publish** |
+| Block production | Manual `prove_next_block()` | Automatic on transaction arrival |
+| Network transport | Simulated | Real gRPC with timeouts/retries |
+| State persistence | In-memory | Persisted to SQLite + block store |
+
+### Account Publishing Constraint
+
+**Pattern Discovery**:
+```rust
+// ❌ WRONG on real node: Custom accounts cannot publish notes
+client.submit_new_transaction(pharmacist_account.id(), note_publish_request).await?;
+
+// ✅ CORRECT: Use BasicWallet sender account
+client.submit_new_transaction(sender_account.id(), note_publish_request).await?;
+```
+
+**Why**: The Miden node requires accounts publishing notes to implement `BasicWallet` or `BasicFungibleFaucet` interfaces for transaction signing and validation. Custom account components lack these interfaces.
+
+**Solution**:
+1. Create separate sender BasicWallet account
+2. Initialize sender with dummy transaction (creates account on-chain)
+3. Sender publishes all notes (prescription, fulfillment)
+4. Target accounts (pharmacist, doctor) consume notes
+
+### Helper Function for Localhost
+
+**Added to `integration/src/helpers.rs`**:
+```rust
+pub async fn setup_local_client() -> Result<ClientSetup> {
+    let endpoint = Endpoint::new("http".into(), "localhost".into(), Some(57291));
+    let timeout_ms = 10_000;
+    let rpc_client = Arc::new(GrpcClient::new(&endpoint, timeout_ms));
+    
+    let keystore_path = std::path::PathBuf::from("../local-keystore");
+    let keystore = Arc::new(FilesystemKeyStore::new(keystore_path)?);
+    
+    let store_path = std::path::PathBuf::from("../local-store.sqlite3");
+    
+    let client = ClientBuilder::new()
+        .rpc(rpc_client)
+        .sqlite_store(store_path)
+        .authenticator(keystore.clone())
+        .in_debug_mode(true.into())
+        .build()
+        .await?;
+    
+    Ok(ClientSetup { client, keystore })
+}
+```
+
+**Key differences from `setup_client()`**:
+- Endpoint: `localhost:57291` instead of `Endpoint::testnet()`
+- Keystore path: `../local-keystore` (separate from testnet `../keystore`)
+- Store path: `../local-store.sqlite3` (separate from testnet `../store.sqlite3`)
+
+### Node Setup & Cleanup
+
+**Must reset state between runs** (critical for version safety):
+```bash
+# 1. Wipe all state
+rm -rf local-node-data/ local-keystore/ local-store.sqlite3
+
+# 2. Bootstrap fresh genesis
+mkdir -p local-node-data
+miden-node bundled bootstrap --data-directory local-node-data --accounts-directory ./genesis-accounts
+
+# 3. Start node
+miden-node bundled start --data-directory local-node-data --rpc.url http://0.0.0.0:57291
+```
+
+**Do NOT** attempt to reuse state from previous sessions - stale stores cause deserialization errors and misleading test failures.
+
+### Transaction Flow for Complex Contracts
+
+**Working Pattern** (from Phase 3 validation):
+```
+1. Create custom accounts (pharmacist, doctor) - registered locally only
+2. Create sender BasicWallet - needs initialization
+3. Submit sender init tx to register on-chain
+4. Sender publishes notes (prescription, fulfillment)
+5. Custom accounts consume notes (works because notes exist on-chain)
+6. Verify state transitions
+```
+
+**Why this works**:
+- Custom accounts can *consume* notes (they have procedures for this)
+- Custom accounts cannot *publish* notes (missing BasicWallet interface)
+- Sender is lightweight, purely for publishing
+- Separation of concerns: sender=publisher, custom=consumer
+
+### Trace Output (Debug Info)
+
+Expect verbose trace output during note consumption:
+```
+Trace with id 240 emitted at step 4376 in context 4363
+Trace with id 252 emitted at step 4386 in context 4363
+```
+
+These are expected debug traces from the Miden prover. Not errors, ignore them.
+
+### Phase 3 Validation Checklist
+
+✅ `setup_local_client()` connects to localhost:57291
+✅ Account creation succeeds (printed ID matches node state)
+✅ Sender initialization transaction succeeds  
+✅ Sender can publish notes
+✅ Custom accounts can consume notes
+✅ State transitions validated (block height increases)
+✅ Final exit code 0
+✅ No panics in node logs
+
+---
+
+## Summary: Path to Phase 4
+
+**Phase 3 Enabled These Discoveries**:
+1. Version matching is non-negotiable (install correct miden-node version)
+2. Custom accounts need separate publisher account
+3. Account initialization required before publishing notes
+4. Separation of publishing (BasicWallet) vs business logic (custom components) is architectural pattern
+
+**Phase 4 Frontend can now safely**:
+1. Trust contract behavior (validated against real node)
+2. Mirror Rust binary flow exactly (sender for publishing, custom accounts for logic)
+3. Deploy contracts to testnet with confidence
+4. Copy `.masp` files to frontend with no further validation needed
