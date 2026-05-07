@@ -1,5 +1,6 @@
 import { LogOut, Dot } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useWallet } from "@miden-sdk/miden-wallet-adapter";
 import { useWalletStore } from "@/store/walletStore";
 import { Button } from "@/components/shared/Button";
 
@@ -24,11 +25,22 @@ function truncateAccount(accountId: string): string {
 
 export function TopBar() {
   const navigate = useNavigate();
+  const wallet = useWallet();
   const { account, disconnect } = useWalletStore();
 
   if (!account) return null;
 
-  const handleDisconnect = () => {
+  const handleDisconnect = async () => {
+    // Disconnect from wallet adapter if available
+    if (wallet?.disconnect) {
+      try {
+        await wallet.disconnect();
+      } catch (err) {
+        console.error("Failed to disconnect wallet:", err);
+      }
+    }
+    
+    // Clear app store and redirect
     disconnect();
     navigate("/connect");
   };

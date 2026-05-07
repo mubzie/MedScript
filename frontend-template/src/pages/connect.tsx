@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useWalletStore } from "@/store/walletStore";
+import { useWalletConnection } from "@/hooks/useWalletConnection";
 import { WalletMultiButton } from "@miden-sdk/miden-wallet-adapter";
 import { motion } from "framer-motion";
 import { Button } from "@/components/shared/Button";
@@ -8,6 +9,9 @@ import { Button } from "@/components/shared/Button";
 export function ConnectPage() {
   const navigate = useNavigate();
   const { connected, account, setConnected, setAccount } = useWalletStore();
+
+  // Sync wallet adapter state with app store
+  useWalletConnection();
 
   // If already connected, redirect to dashboard
   useEffect(() => {
@@ -48,7 +52,7 @@ export function ConnectPage() {
           </p>
         </div>
 
-        {/* Main Wallet Connect Button */}
+        {/* Wallet Connect Button */}
         <div className="card mb-8">
           <div className="flex justify-center">
             <WalletMultiButton />
@@ -59,7 +63,7 @@ export function ConnectPage() {
         {import.meta.env.DEV && (
           <div className="space-y-2 pt-4 border-t border-border-default">
             <p className="text-xs text-text-tertiary text-center mb-3">
-              Dev Mode — Quick login
+              Dev Mode — Quick login (bypasses wallet)
             </p>
             <Button
               variant="secondary"

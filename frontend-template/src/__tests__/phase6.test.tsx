@@ -4,13 +4,31 @@ import userEvent from "@testing-library/user-event";
 import App from "@/App";
 import { useWalletStore } from "@/store/walletStore";
 
+// Mock wallet hook
+const mockWallet = {
+  connected: false,
+  publicAccount: null,
+  disconnect: vi.fn(),
+};
+
 // Mock @miden-sdk/miden-wallet-adapter
 vi.mock("@miden-sdk/miden-wallet-adapter", () => ({
+  WalletProvider: ({ children }: { children: React.ReactNode }) =>
+    children,
   MidenFiSignerProvider: ({ children }: { children: React.ReactNode }) =>
+    children,
+  WalletModalProvider: ({ children }: { children: React.ReactNode }) =>
     children,
   WalletMultiButton: () => (
     <button data-testid="wallet-connect-button">Connect Wallet</button>
   ),
+  MidenWallet: vi.fn(() => ({ name: "MidenWallet" })),
+  useWallet: () => mockWallet,
+}));
+
+// Mock useWalletConnection hook
+vi.mock("@/hooks/useWalletConnection", () => ({
+  useWalletConnection: () => mockWallet,
 }));
 
 // Mock @miden-sdk/react
@@ -29,6 +47,10 @@ describe("Phase 6: Wallet Integration & Protected Routes", () => {
       connecting: false,
       error: null,
     });
+    // Reset mock
+    mockWallet.connected = false;
+    mockWallet.publicAccount = null;
+    vi.clearAllMocks();
   });
 
   describe("Wallet Connection Flow", () => {
@@ -54,7 +76,7 @@ describe("Phase 6: Wallet Integration & Protected Routes", () => {
       }
     });
 
-    it("should redirect to pharmacist dashboard after pharmacist login", async () => {
+    it("should redirect to pharmacist dashboard via dev shortcut", async () => {
       const user = userEvent.setup();
       render(<App />);
 
@@ -64,11 +86,11 @@ describe("Phase 6: Wallet Integration & Protected Routes", () => {
       await user.click(pharmacistBtn);
 
       await waitFor(() => {
-        expect(screen.getByText("Welcome to Your Pharmacy Portal")).toBeInTheDocument();
+        expect(screen.getByText("Today's Queue")).toBeInTheDocument();
       });
     });
 
-    it("should redirect to doctor dashboard after doctor login", async () => {
+    it("should redirect to doctor dashboard via dev shortcut", async () => {
       const user = userEvent.setup();
       render(<App />);
 
@@ -82,7 +104,7 @@ describe("Phase 6: Wallet Integration & Protected Routes", () => {
       });
     });
 
-    it("should redirect to patient dashboard after patient login", async () => {
+    it("should redirect to patient dashboard via dev shortcut", async () => {
       const user = userEvent.setup();
       render(<App />);
 
@@ -92,7 +114,34 @@ describe("Phase 6: Wallet Integration & Protected Routes", () => {
       await user.click(patientBtn);
 
       await waitFor(() => {
-        expect(screen.getByText("MedScript")).toBeInTheDocument();
+        expect(screen.getByText("Patient")).toBeInTheDocument();
+      });
+    });
+
+    it("should redirect to dashboard when real wallet connects", async () => {
+      // Set up mock wallet as connected
+      mockWallet.connected = true;
+      mockWallet.publicAccount = {
+        address: "0x962c393e4be8b7002d78783908a73e",
+        id: "0x962c393e4be8b7002d78783908a73e",
+      };
+
+      // Manually trigger the wallet store update (simulating useWalletConnection hook)
+      useWalletStore.setState({
+        connected: true,
+        account: {
+          id: "0x962c393e4be8b7002d78783908a73e",
+          type: "pharmacist",
+          credentialHash: "0x" + "a".repeat(64),
+          isVerified: true,
+          network: "testnet",
+        },
+      });
+
+      render(<App />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Today's Queue")).toBeInTheDocument();
       });
     });
   });
@@ -104,13 +153,19 @@ describe("Phase 6: Wallet Integration & Protected Routes", () => {
     });
 
     it("should show TopBar with account info on authenticated pages", async () => {
-      const user = userEvent.setup();
-      render(<App />);
-
-      const pharmacistBtn = screen.getByRole("button", {
-        name: /login as pharmacist/i,
+      // Simulate wallet connection
+      useWalletStore.setState({
+        connected: true,
+        account: {
+          id: "0x962c393e4be8b7002d78783908a73e",
+          type: "pharmacist",
+          credentialHash: "0x" + "a".repeat(64),
+          isVerified: true,
+          network: "testnet",
+        },
       });
-      await user.click(pharmacistBtn);
+
+      render(<App />);
 
       await waitFor(() => {
         expect(screen.getByText("Testnet")).toBeInTheDocument();
@@ -121,12 +176,20 @@ describe("Phase 6: Wallet Integration & Protected Routes", () => {
 
     it("should disconnect and redirect to /connect", async () => {
       const user = userEvent.setup();
-      render(<App />);
 
-      const pharmacistBtn = screen.getByRole("button", {
-        name: /login as pharmacist/i,
+      // Start as connected
+      useWalletStore.setState({
+        connected: true,
+        account: {
+          id: "0x962c393e4be8b7002d78783908a73e",
+          type: "pharmacist",
+          credentialHash: "0x" + "a".repeat(64),
+          isVerified: true,
+          network: "testnet",
+        },
       });
-      await user.click(pharmacistBtn);
+
+      render(<App />);
 
       await waitFor(() => {
         expect(screen.getByText("Pharmacist")).toBeInTheDocument();
@@ -137,63 +200,105 @@ describe("Phase 6: Wallet Integration & Protected Routes", () => {
       });
       await user.click(disconnectBtn);
 
+      // Should call wallet.disconnect()
+      expect(mockWallet.disconnect).toHaveBeenCalled();
+
       await waitFor(() => {
         expect(screen.getByTestId("wallet-connect-button")).toBeInTheDocument();
       });
     });
 
-    it("should show role-specific badge colors", async () => {
-      const user = userEvent.setup();
-      render(<App />);
-
-      const doctorBtn = screen.getByRole("button", {
-        name: /login as doctor/i,
+    it("should show role-specific badge for doctor", async () => {
+      useWalletStore.setState({
+        connected: true,
+        account: {
+          id: "0xce9a185139464d0077efb96d6dfaa3",
+          type: "doctor",
+          credentialHash: "0x" + "a".repeat(64),
+          isVerified: true,
+          network: "testnet",
+        },
       });
-      await user.click(doctorBtn);
+
+      render(<App />);
 
       await waitFor(() => {
         expect(screen.getByText("Doctor")).toBeInTheDocument();
+      });
+    });
+
+    it("should show role-specific badge for patient", async () => {
+      useWalletStore.setState({
+        connected: true,
+        account: {
+          id: "0x3a1b2c5d8e9f4a6b7c8d9e0f1a2b3c4d",
+          type: "patient",
+          credentialHash: "0x" + "a".repeat(64),
+          isVerified: true,
+          network: "testnet",
+        },
+      });
+
+      render(<App />);
+
+      await waitFor(() => {
+        expect(screen.getByText("Patient")).toBeInTheDocument();
       });
     });
   });
 
   describe("TopBar Display", () => {
     it("should show network badge on authenticated pages", async () => {
-      const user = userEvent.setup();
-      render(<App />);
-
-      const pharmacistBtn = screen.getByRole("button", {
-        name: /login as pharmacist/i,
+      useWalletStore.setState({
+        connected: true,
+        account: {
+          id: "0x962c393e4be8b7002d78783908a73e",
+          type: "pharmacist",
+          credentialHash: "0x" + "a".repeat(64),
+          isVerified: true,
+          network: "testnet",
+        },
       });
-      await user.click(pharmacistBtn);
+
+      render(<App />);
 
       await waitFor(() => {
         expect(screen.getByText("Testnet")).toBeInTheDocument();
       });
     });
 
-    it("should show role badge with correct text", async () => {
-      const user = userEvent.setup();
+    it("should show truncated account ID", async () => {
+      useWalletStore.setState({
+        connected: true,
+        account: {
+          id: "0x962c393e4be8b7002d78783908a73e",
+          type: "pharmacist",
+          credentialHash: "0x" + "a".repeat(64),
+          isVerified: true,
+          network: "testnet",
+        },
+      });
+
       render(<App />);
 
-      const doctorBtn = screen.getByRole("button", {
-        name: /login as doctor/i,
-      });
-      await user.click(doctorBtn);
-
       await waitFor(() => {
-        expect(screen.getByText("Doctor")).toBeInTheDocument();
+        expect(screen.getByText("0x962c...a73e")).toBeInTheDocument();
       });
     });
 
     it("should show verification status indicator", async () => {
-      const user = userEvent.setup();
-      render(<App />);
-
-      const pharmacistBtn = screen.getByRole("button", {
-        name: /login as pharmacist/i,
+      useWalletStore.setState({
+        connected: true,
+        account: {
+          id: "0x962c393e4be8b7002d78783908a73e",
+          type: "pharmacist",
+          credentialHash: "0x" + "a".repeat(64),
+          isVerified: true,
+          network: "testnet",
+        },
       });
-      await user.click(pharmacistBtn);
+
+      render(<App />);
 
       await waitFor(() => {
         expect(screen.getByText("Verified")).toBeInTheDocument();

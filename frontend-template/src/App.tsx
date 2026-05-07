@@ -2,6 +2,8 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AppProviders } from "@/providers";
 import { ConnectPage } from "@/pages/connect";
 import { PharmacistPage } from "@/pages/pharmacist";
+import { PharmacistSessionPage } from "@/pages/pharmacist/session";
+import { PharmacistSuccessPage } from "@/pages/pharmacist/success";
 import { DoctorPage } from "@/pages/doctor";
 import { PatientPage } from "@/pages/patient";
 import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
@@ -39,7 +41,17 @@ export default function App() {
               element={
                 <ProtectedRoute allowedRoles={["pharmacist"]}>
                   <AuthenticatedLayout>
-                    <PharmacistPage />
+                    <PharmacistSessionPage />
+                  </AuthenticatedLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/pharmacist/success"
+              element={
+                <ProtectedRoute allowedRoles={["pharmacist"]}>
+                  <AuthenticatedLayout>
+                    <PharmacistSuccessPage />
                   </AuthenticatedLayout>
                 </ProtectedRoute>
               }
