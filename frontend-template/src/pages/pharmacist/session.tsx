@@ -219,10 +219,10 @@ export function PharmacistSessionPage() {
                 {patient.testResults.map((result, idx) => {
                   const flagColor =
                     result.flag === "normal"
-                      ? "bg-primary-700/20 text-primary-700"
+                      ? "bg-emerald-100 text-emerald-900"
                       : result.flag === "low"
-                        ? "bg-amber-500/20 text-amber-700"
-                        : "bg-red-500/20 text-red-700";
+                        ? "bg-amber-100 text-amber-900"
+                        : "bg-red-100 text-red-900";
 
                   return (
                     <div key={idx} className="pb-3 border-b border-border-default last:border-0">
