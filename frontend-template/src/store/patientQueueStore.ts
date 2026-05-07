@@ -1,11 +1,7 @@
 import { create } from "zustand";
+import { loadPatientQueueState, savePatientQueueState } from "@/lib/workflowStorage";
 
 export type QueueStatus = "Waiting" | "In Session" | "Complete";
-
-interface PatientQueueItem {
-  patientId: string;
-  status: QueueStatus;
-}
 
 interface PatientQueueStore {
   patientStatuses: Map<string, QueueStatus>;
@@ -23,13 +19,16 @@ interface PatientQueueStore {
   clearStatuses: () => void;
 }
 
+const initialPatientStatuses = loadPatientQueueState();
+
 export const usePatientQueueStore = create<PatientQueueStore>((set, get) => ({
-  patientStatuses: new Map(),
+  patientStatuses: initialPatientStatuses,
 
   initializeStatus: (patientId, status) =>
     set((state) => {
       const newStatuses = new Map(state.patientStatuses);
       newStatuses.set(patientId, status);
+      savePatientQueueState(newStatuses);
       return { patientStatuses: newStatuses };
     }),
 
@@ -37,6 +36,7 @@ export const usePatientQueueStore = create<PatientQueueStore>((set, get) => ({
     set((state) => {
       const newStatuses = new Map(state.patientStatuses);
       newStatuses.set(patientId, status);
+      savePatientQueueState(newStatuses);
       return { patientStatuses: newStatuses };
     }),
 
@@ -45,5 +45,10 @@ export const usePatientQueueStore = create<PatientQueueStore>((set, get) => ({
     return state.patientStatuses.get(patientId);
   },
 
-  clearStatuses: () => set({ patientStatuses: new Map() }),
+  clearStatuses: () =>
+    set(() => {
+      const next = new Map<string, QueueStatus>();
+      savePatientQueueState(next);
+      return { patientStatuses: next };
+    }),
 }));

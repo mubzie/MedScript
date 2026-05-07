@@ -9,6 +9,7 @@ import { Badge } from "@/components/shared/Badge";
 import { ZKProofOverlay } from "@/components/shared/ZKProofOverlay";
 import { ConfirmationModal } from "@/components/shared/ConfirmationModal";
 import { useToast } from "@/hooks/useToast";
+import { buildTransactionExplorerUrl } from "@/lib/workflowStorage";
 import type { FulfillmentAuthorizationNote } from "@/types";
 
 type DecisionType = "approve" | "approve-modifications" | "reject" | null;
@@ -41,6 +42,8 @@ export function DoctorPrescriptionPage() {
 
   const [showApprovalConfirm, setShowApprovalConfirm] = useState(false);
   const [authorizationNoteId, setAuthorizationNoteId] = useState("");
+  const [approvalTxHash, setApprovalTxHash] = useState("");
+  const isExpired = prescription ? prescription.expiresAt.getTime() < Date.now() : false;
 
   const statusBadgeType = useMemo(() => {
     if (!prescription) return "neutral" as const;
@@ -61,9 +64,13 @@ export function DoctorPrescriptionPage() {
   }
 
   const handleApprove = async () => {
+    if (isExpired) {
+      showToast("This note is expired and cannot be approved.", "error");
+      return;
+    }
     setShowOverlay(true);
     try {
-      await midenClient.consumeNote(prescription.id);
+      const consumeTxHash = await midenClient.consumeNote(prescription.id);
       const fulfillment = await midenClient.approvePrescription({
         prescriptionNoteId: prescription.id,
         medication: prescription.medication,
@@ -71,6 +78,8 @@ export function DoctorPrescriptionPage() {
         doctorNotes: decision.doctorNotes,
         isModified: decision.type === "approve-modifications",
       });
+
+      const transactionHash = fulfillment.transactionId ?? consumeTxHash;
 
       const fulfillmentForStore: FulfillmentAuthorizationNote = {
         ...fulfillment,
@@ -85,6 +94,7 @@ export function DoctorPrescriptionPage() {
 
       addFulfillment(fulfillmentForStore);
       setAuthorizationNoteId(fulfillment.id);
+      setApprovalTxHash(transactionHash);
       updatePrescriptionStatus(prescription.id, "approved");
       updatePrescription(prescription.id, { status: "approved" });
       showToast("Prescription approved. Authorization sent to pharmacist.", "success");
@@ -97,6 +107,10 @@ export function DoctorPrescriptionPage() {
   };
 
   const handleReject = async () => {
+    if (isExpired) {
+      showToast("This note is expired and cannot be rejected.", "error");
+      return;
+    }
     setShowRejectConfirm(false);
     setShowOverlay(true);
     try {
@@ -176,6 +190,9 @@ export function DoctorPrescriptionPage() {
               <div className={`text-sm font-medium ${getExpiryColor(prescription.expiresAt)}`}>
                 {getExpiryText(prescription.expiresAt)}
               </div>
+              {isExpired && (
+                <p className="text-xs text-status-high mt-2">Expired note — review actions disabled.</p>
+              )}
             </Card>
 
             {/* Pharmacist Info */}
@@ -320,6 +337,7 @@ export function DoctorPrescriptionPage() {
                     variant="primary"
                     className="w-full"
                     onClick={handleApprove}
+                    disabled={isExpired}
                   >
                     Approve & Send Authorization
                   </Button>
@@ -344,7 +362,7 @@ export function DoctorPrescriptionPage() {
                     variant="primary"
                     className="w-full"
                     onClick={handleApprove}
-                    disabled={!decision.doctorNotes.trim()}
+                    disabled={!decision.doctorNotes.trim() || isExpired}
                   >
                     Approve with Notes & Send
                   </Button>
@@ -369,7 +387,7 @@ export function DoctorPrescriptionPage() {
                     variant="destructive"
                     className="w-full"
                     onClick={() => setShowRejectConfirm(true)}
-                    disabled={!decision.rejectReason.trim()}
+                    disabled={!decision.rejectReason.trim() || isExpired}
                   >
                     Send Rejection
                   </Button>
@@ -397,6 +415,20 @@ export function DoctorPrescriptionPage() {
                   <p className="text-xs font-medium text-text-tertiary">Authorization Note ID</p>
                   <p className="font-mono text-sm text-text-primary">{authorizationNoteId}</p>
                 </div>
+                {approvalTxHash && (
+                  <div className="bg-surface-sunken p-3 rounded-lg mb-6 text-left space-y-2">
+                    <p className="text-xs font-medium text-text-tertiary">Transaction Hash</p>
+                    <p className="font-mono text-sm text-text-primary break-all">{approvalTxHash}</p>
+                    <a
+                      href={buildTransactionExplorerUrl(approvalTxHash)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex text-sm font-medium text-primary-800 hover:underline"
+                    >
+                      View on explorer
+                    </a>
+                  </div>
+                )}
                 <div className="bg-green-50 p-3 rounded-lg mb-6 text-left border border-green-200">
                   <p className="text-sm font-medium text-green-900">{prescription.medication} {prescription.dosage}</p>
                   <p className="text-xs text-green-800">{prescription.frequency} for {prescription.duration}</p>

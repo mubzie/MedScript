@@ -1,10 +1,13 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { mockPatients } from "@/lib/mock/mockPatients";
 import { usePrescriptionStore } from "@/store/prescriptionStore";
 import { usePatientQueueStore, type QueueStatus } from "@/store/patientQueueStore";
+import { midenClient } from "@/lib/miden/midenClient";
+import { useToast } from "@/hooks/useToast";
 import { Button } from "@/components/shared/Button";
 import { Card } from "@/components/shared/Card";
+import { ZKProofOverlay } from "@/components/shared/ZKProofOverlay";
 import { Clock, CheckCircle, AlertCircle } from "lucide-react";
 
 interface QueueItem {
@@ -28,8 +31,10 @@ const STATUS_ICONS: Record<QueueStatus, typeof Clock> = {
 
 export function PharmacistPage() {
   const navigate = useNavigate();
-  const { prescriptions, fulfillments } = usePrescriptionStore();
+  const { prescriptions, fulfillments, updatePrescription, updateFulfillment } = usePrescriptionStore();
   const { getPatientStatus, initializeStatus } = usePatientQueueStore();
+  const { showToast } = useToast();
+  const [activeFulfillmentId, setActiveFulfillmentId] = useState<string | null>(null);
 
   // Initialize patient statuses on first load
   useEffect(() => {
@@ -72,8 +77,23 @@ export function PharmacistPage() {
     return p.status === "fulfilled" && createdAt >= weekAgo;
   }).length;
 
+  const handleMarkFulfilled = async (fulfillmentId: string, prescriptionNoteId: string) => {
+    setActiveFulfillmentId(fulfillmentId);
+    try {
+      await midenClient.markFulfilled(prescriptionNoteId);
+      updateFulfillment(fulfillmentId, { status: "consumed" });
+      updatePrescription(prescriptionNoteId, { status: "fulfilled" });
+      showToast("Ready to collect notification sent.", "success");
+    } catch {
+      showToast("Failed to mark prescription as fulfilled.", "error");
+    } finally {
+      setActiveFulfillmentId(null);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-surface-base">
+      <ZKProofOverlay visible={Boolean(activeFulfillmentId)} />
       <main className="max-w-7xl mx-auto px-6 py-8">
         {/* Stats Bar */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
@@ -211,10 +231,15 @@ export function PharmacistPage() {
                         Approved medication: {note.approvedMedication}
                       </p>
                     </div>
-                    <Button variant="primary" size="sm">
-                      Fulfill
-                    </Button>
-                  </div>
+                     <Button
+                       variant="primary"
+                       size="sm"
+                       onClick={() => handleMarkFulfilled(note.id, note.prescriptionNoteId)}
+                       disabled={note.status === "consumed"}
+                     >
+                       Fulfill
+                     </Button>
+                   </div>
                 ))}
               </div>
             )}

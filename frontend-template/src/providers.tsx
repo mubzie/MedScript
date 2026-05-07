@@ -15,7 +15,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
       <MidenFiSignerProvider appName={APP_NAME} autoConnect>
         <WalletModalProvider>
           <MidenProvider
-            config={{ rpcUrl: "local", prover: "local" }}
+            config={{ rpcUrl: MIDEN_RPC_URL, prover: MIDEN_PROVER }}
             loadingComponent={
               <div className="min-h-screen flex items-center justify-center bg-surface-base">
                 <div className="text-center">

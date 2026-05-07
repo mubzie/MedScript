@@ -523,3 +523,28 @@ Next: Build pharmacist workflow (create/send prescriptions to doctors)
 - [x] Ensure ZKProofOverlay behavior is consistent in doctor review actions
 - [x] Add Phase 8 tests in `frontend-template/src/__tests__/`
 - [x] Run `cd frontend-template && npx vitest --run`
+
+---
+
+# Phase 9: Final Integration
+
+## Status: 🔄 IN PROGRESS
+
+### Part A — Patient Mock Portal
+- [x] Build read-only patient portal timeline with 5 states from `prescriptionStore`
+- [x] Add conditional instruction/success cards based on status
+- [x] Add appointment card and conditional prescription summary
+
+### Part B — UI Polish & State Integration
+- [x] Wire patient status transitions: sent → approved → ready to collect
+- [x] Add pharmacist fulfillment action to mark ready-to-collect
+- [x] Ensure consistent ZK overlays, badges, toasts, empty/error states
+- [x] Make TopBar responsive for mobile collapse behavior
+
+### Part C — Real SDK Integration (Testnet)
+- [ ] Replace `midenClient.ts` stubs with SDK-backed implementations
+- [x] Add doctor inbox polling + last-synced display
+- [x] Add tx hash + explorer links on confirmation screens
+- [ ] Update README with run/demo/testnet/localStorage guidance
+- [ ] Create `feedback.md`
+- [x] Run `cd frontend-template && npx vitest --run`

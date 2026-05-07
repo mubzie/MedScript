@@ -15,8 +15,8 @@ export function useWalletConnection() {
     if (!wallet) return;
 
     // When wallet connects
-    if (wallet.connected && wallet.publicAccount) {
-      const accountId = wallet.publicAccount.address || wallet.publicAccount.id;
+    if (wallet.connected && wallet.address) {
+      const accountId = wallet.address;
       
       setConnected(true);
       setAccount({
@@ -31,7 +31,7 @@ export function useWalletConnection() {
       // When wallet disconnects
       disconnect();
     }
-  }, [wallet?.connected, wallet?.publicAccount?.address, setConnected, setAccount, disconnect]);
+  }, [wallet?.connected, wallet?.address, setConnected, setAccount, disconnect]);
 
   return wallet;
 }

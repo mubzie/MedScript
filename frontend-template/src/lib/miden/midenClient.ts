@@ -6,6 +6,10 @@ import type {
   ApprovePrescriptionRequest,
 } from "@/types";
 
+type ApprovalResult = FulfillmentAuthorizationNote & {
+  transactionId?: string;
+};
+
 /**
  * Typed wrapper around Miden SDK hooks for MedScript operations.
  * 
@@ -116,7 +120,7 @@ export class MidenClient {
    * STUB — to be replaced in Phase 9
    * Real implementation will use useNotes() hook
    */
-  async getIncomingNotes(): Promise<PrescriptionNote[]> {
+  async getIncomingNotes(_accountId?: string): Promise<PrescriptionNote[]> {
     // STUB — to be replaced in Phase 9
     await new Promise((r) => setTimeout(r, 1000));
     return [];
@@ -144,7 +148,7 @@ export class MidenClient {
    */
   async approvePrescription(
     payload: ApprovePrescriptionRequest,
-  ): Promise<FulfillmentAuthorizationNote> {
+  ): Promise<ApprovalResult> {
     // STUB — to be replaced in Phase 9
     await new Promise((r) => setTimeout(r, 2000));
     return {
@@ -158,6 +162,7 @@ export class MidenClient {
       isModified: payload.isModified,
       status: "approved",
       createdAt: new Date(),
+      transactionId: `tx_approve_${Date.now()}`,
     };
   }
 

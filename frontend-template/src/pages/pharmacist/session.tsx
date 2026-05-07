@@ -106,7 +106,7 @@ export function PharmacistSessionPage() {
         expiryDays: 7,
       });
 
-      await midenClient.sendNoteToDoctor(
+      const txHash = await midenClient.sendNoteToDoctor(
         createdNote,
         selectedDoctor.midenAccountId,
       );
@@ -130,6 +130,7 @@ export function PharmacistSessionPage() {
 
       addPrescription(newPrescription);
       updatePatientStatus(patientId || "", "Complete");
+      showToast("Prescription note sent to doctor.", "success");
 
       setShowOverlay(false);
 
@@ -138,6 +139,7 @@ export function PharmacistSessionPage() {
           state: {
             doctorName: selectedDoctor.name,
             noteId: createdNote.id,
+            txHash: txHash,
           },
         });
     } catch (error) {

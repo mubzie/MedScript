@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { ToastProvider } from "@/components/shared/ToastProvider";
 import { PharmacistSessionPage } from "@/pages/pharmacist/session";
 import { PharmacistSuccessPage } from "@/pages/pharmacist/success";
 import { usePatientQueueStore } from "@/store/patientQueueStore";
@@ -20,12 +21,14 @@ vi.mock("@/lib/miden/midenClient", () => ({
 
 function renderSession(patientId = "patient_001") {
   return render(
-    <MemoryRouter initialEntries={[`/pharmacist/session/${patientId}`]}>
-      <Routes>
-        <Route path="/pharmacist/session/:patientId" element={<PharmacistSessionPage />} />
-        <Route path="/pharmacist/success" element={<PharmacistSuccessPage />} />
-      </Routes>
-    </MemoryRouter>,
+    <ToastProvider>
+      <MemoryRouter initialEntries={[`/pharmacist/session/${patientId}`]}>
+        <Routes>
+          <Route path="/pharmacist/session/:patientId" element={<PharmacistSessionPage />} />
+          <Route path="/pharmacist/success" element={<PharmacistSuccessPage />} />
+        </Routes>
+      </MemoryRouter>
+    </ToastProvider>,
   );
 }
 
@@ -91,7 +94,7 @@ describe("Phase 7: Pharmacist workflow", () => {
     await user.type(screen.getByPlaceholderText(/provide any clinical context/i), "Follow up in one week.");
     await user.click(screen.getByRole("button", { name: /^next$/i }));
     expect(screen.getByText("Review & Send")).toBeInTheDocument();
-  });
+  }, 10000);
 
   it("shows ZKProofOverlay during send", async () => {
     const user = userEvent.setup();

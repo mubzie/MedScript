@@ -1,10 +1,12 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { CheckCircle } from "lucide-react";
 import { Button } from "@/components/shared/Button";
+import { buildTransactionExplorerUrl } from "@/lib/workflowStorage";
 
 interface SuccessState {
   doctorName: string;
   noteId: string;
+  txHash?: string;
 }
 
 export function PharmacistSuccessPage() {
@@ -42,6 +44,21 @@ export function PharmacistSuccessPage() {
           <p className="text-xs font-medium text-text-tertiary mb-2">Note ID</p>
           <p className="font-mono text-sm text-text-primary break-all">{state.noteId}</p>
         </div>
+
+        {state.txHash && (
+          <div className="bg-surface-sunken rounded-lg p-6 mb-6 text-left space-y-2">
+            <p className="text-xs font-medium text-text-tertiary">Transaction Hash</p>
+            <p className="font-mono text-sm text-text-primary break-all">{state.txHash}</p>
+            <a
+              href={buildTransactionExplorerUrl(state.txHash)}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex text-sm font-medium text-primary-800 hover:underline"
+            >
+              View on explorer
+            </a>
+          </div>
+        )}
 
         <p className="text-text-secondary mb-8">
           Instruct the patient to visit Dr. {doctorDisplayName} with the note ID for approval.

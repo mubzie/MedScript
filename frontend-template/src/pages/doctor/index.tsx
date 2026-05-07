@@ -1,9 +1,12 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { mockPrescriptionInbox } from "@/lib/mock/mockPrescriptionInbox";
 import { mockPatients } from "@/lib/mock/mockPatients";
 import { useDoctorStore } from "@/store/doctorStore";
 import { usePrescriptionStore } from "@/store/prescriptionStore";
+import { useWalletStore } from "@/store/walletStore";
+import { useToast } from "@/hooks/useToast";
+import { midenClient } from "@/lib/miden/midenClient";
 import { Card } from "@/components/shared/Card";
 import { Badge } from "@/components/shared/Badge";
 import { Clock, CheckCircle, AlertCircle, Inbox } from "lucide-react";
@@ -58,6 +61,10 @@ export function DoctorPage() {
   const navigate = useNavigate();
   const { prescriptionInbox, initializeInbox, getStats } = useDoctorStore();
   const { prescriptions } = usePrescriptionStore();
+  const { account } = useWalletStore();
+  const { showToast } = useToast();
+  const prevCount = useRef(0);
+  const [lastSynced, setLastSynced] = useState<Date | null>(null);
 
   // Prefer pharmacist-created prescriptions; fallback to static mock inbox.
   useEffect(() => {
@@ -70,6 +77,35 @@ export function DoctorPage() {
       initializeInbox(mockPrescriptionInbox);
     }
   }, [prescriptions, prescriptionInbox.length, initializeInbox]);
+
+  useEffect(() => {
+    if (prescriptionInbox.length > prevCount.current && prevCount.current > 0) {
+      showToast("New prescription note received.", "success");
+    }
+    prevCount.current = prescriptionInbox.length;
+  }, [prescriptionInbox.length, showToast]);
+
+  useEffect(() => {
+    if (!account?.id) return;
+
+    let mounted = true;
+
+    const pollInbox = async () => {
+      try {
+        await midenClient.getIncomingNotes(account.id);
+        if (mounted) setLastSynced(new Date());
+      } catch {
+        // Keep polling; sync issues are surfaced through per-action errors.
+      }
+    };
+
+    pollInbox();
+    const interval = window.setInterval(pollInbox, 30_000);
+    return () => {
+      mounted = false;
+      window.clearInterval(interval);
+    };
+  }, [account?.id]);
 
   const stats = useMemo(() => getStats(), [getStats, prescriptionInbox]);
 
@@ -112,6 +148,9 @@ export function DoctorPage() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-text-primary">Doctor Portal</h1>
           <p className="text-text-secondary mt-1">Review and approve prescriptions from pharmacists</p>
+          <p className="text-xs text-text-tertiary mt-2">
+            Last synced {lastSynced ? lastSynced.toLocaleTimeString() : "never"}
+          </p>
         </div>
 
         {/* Stats Bar */}

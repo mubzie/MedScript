@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { ToastProvider } from "@/components/shared/ToastProvider";
 import { DoctorPage } from "@/pages/doctor";
 import { DoctorPrescriptionPage } from "@/pages/doctor/prescription";
 import { useDoctorStore } from "@/store/doctorStore";
@@ -54,9 +55,11 @@ describe("Phase 8: Doctor workflow", () => {
     usePrescriptionStore.getState().addPrescription(createPrescription("note-phase8-1"));
 
     render(
-      <MemoryRouter>
-        <DoctorPage />
-      </MemoryRouter>,
+      <ToastProvider>
+        <MemoryRouter>
+          <DoctorPage />
+        </MemoryRouter>
+      </ToastProvider>,
     );
 
     await waitFor(() => {
@@ -105,11 +108,13 @@ describe("Phase 8: Doctor workflow", () => {
     });
 
     render(
-      <MemoryRouter initialEntries={[`/doctor/prescription/${prescription.id}`]}>
-        <Routes>
-          <Route path="/doctor/prescription/:noteId" element={<DoctorPrescriptionPage />} />
-        </Routes>
-      </MemoryRouter>,
+      <ToastProvider>
+        <MemoryRouter initialEntries={[`/doctor/prescription/${prescription.id}`]}>
+          <Routes>
+            <Route path="/doctor/prescription/:noteId" element={<DoctorPrescriptionPage />} />
+          </Routes>
+        </MemoryRouter>
+      </ToastProvider>,
     );
 
     await user.click(screen.getByRole("button", { name: /approve as written/i }));
@@ -151,11 +156,13 @@ describe("Phase 8: Doctor workflow", () => {
     mockRejectNote.mockResolvedValue("tx_reject_1");
 
     render(
-      <MemoryRouter initialEntries={[`/doctor/prescription/${prescription.id}`]}>
-        <Routes>
-          <Route path="/doctor/prescription/:noteId" element={<DoctorPrescriptionPage />} />
-        </Routes>
-      </MemoryRouter>,
+      <ToastProvider>
+        <MemoryRouter initialEntries={[`/doctor/prescription/${prescription.id}`]}>
+          <Routes>
+            <Route path="/doctor/prescription/:noteId" element={<DoctorPrescriptionPage />} />
+          </Routes>
+        </MemoryRouter>
+      </ToastProvider>,
     );
 
     await user.click(screen.getByRole("button", { name: /^reject$/i }));

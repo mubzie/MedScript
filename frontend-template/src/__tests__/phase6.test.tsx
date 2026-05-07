@@ -7,7 +7,7 @@ import { useWalletStore } from "@/store/walletStore";
 // Mock wallet hook
 const mockWallet = {
   connected: false,
-  publicAccount: null,
+  address: null as string | null,
   disconnect: vi.fn(),
 };
 
@@ -49,7 +49,7 @@ describe("Phase 6: Wallet Integration & Protected Routes", () => {
     });
     // Reset mock
     mockWallet.connected = false;
-    mockWallet.publicAccount = null;
+    mockWallet.address = null;
     vi.clearAllMocks();
   });
 
@@ -121,10 +121,7 @@ describe("Phase 6: Wallet Integration & Protected Routes", () => {
     it("should redirect to dashboard when real wallet connects", async () => {
       // Set up mock wallet as connected
       mockWallet.connected = true;
-      mockWallet.publicAccount = {
-        address: "0x962c393e4be8b7002d78783908a73e",
-        id: "0x962c393e4be8b7002d78783908a73e",
-      };
+      mockWallet.address = "0x962c393e4be8b7002d78783908a73e";
 
       // Manually trigger the wallet store update (simulating useWalletConnection hook)
       useWalletStore.setState({

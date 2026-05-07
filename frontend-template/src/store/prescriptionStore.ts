@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { PrescriptionNote, FulfillmentAuthorizationNote } from "@/types";
+import { loadWorkflowState, saveWorkflowState } from "@/lib/workflowStorage";
 
 interface PrescriptionStore {
   prescriptions: PrescriptionNote[];
@@ -25,28 +26,51 @@ interface PrescriptionStore {
   clear: () => void;
 }
 
+const initialWorkflowState = loadWorkflowState();
+
 export const usePrescriptionStore = create<PrescriptionStore>((set, get) => ({
-  prescriptions: [],
-  fulfillments: [],
+  prescriptions: initialWorkflowState.prescriptions,
+  fulfillments: initialWorkflowState.fulfillments,
   isLoading: false,
   error: null,
 
   addPrescription: (prescription) =>
-    set((state) => ({
-      prescriptions: [...state.prescriptions, prescription],
-    })),
+    set((state) => {
+      const next = {
+        prescriptions: [...state.prescriptions, prescription],
+      };
+      saveWorkflowState({
+        prescriptions: next.prescriptions,
+        fulfillments: state.fulfillments,
+      });
+      return next;
+    }),
 
   updatePrescription: (id, updates) =>
-    set((state) => ({
-      prescriptions: state.prescriptions.map((p) =>
-        p.id === id ? { ...p, ...updates } : p,
-      ),
-    })),
+    set((state) => {
+      const next = {
+        prescriptions: state.prescriptions.map((p) =>
+          p.id === id ? { ...p, ...updates } : p,
+        ),
+      };
+      saveWorkflowState({
+        prescriptions: next.prescriptions,
+        fulfillments: state.fulfillments,
+      });
+      return next;
+    }),
 
   removePrescription: (id) =>
-    set((state) => ({
-      prescriptions: state.prescriptions.filter((p) => p.id !== id),
-    })),
+    set((state) => {
+      const next = {
+        prescriptions: state.prescriptions.filter((p) => p.id !== id),
+      };
+      saveWorkflowState({
+        prescriptions: next.prescriptions,
+        fulfillments: state.fulfillments,
+      });
+      return next;
+    }),
 
   getPrescriptionById: (id) => {
     const state = get();
@@ -54,21 +78,42 @@ export const usePrescriptionStore = create<PrescriptionStore>((set, get) => ({
   },
 
   addFulfillment: (fulfillment) =>
-    set((state) => ({
-      fulfillments: [...state.fulfillments, fulfillment],
-    })),
+    set((state) => {
+      const next = {
+        fulfillments: [...state.fulfillments, fulfillment],
+      };
+      saveWorkflowState({
+        prescriptions: state.prescriptions,
+        fulfillments: next.fulfillments,
+      });
+      return next;
+    }),
 
   updateFulfillment: (id, updates) =>
-    set((state) => ({
-      fulfillments: state.fulfillments.map((f) =>
-        f.id === id ? { ...f, ...updates } : f,
-      ),
-    })),
+    set((state) => {
+      const next = {
+        fulfillments: state.fulfillments.map((f) =>
+          f.id === id ? { ...f, ...updates } : f,
+        ),
+      };
+      saveWorkflowState({
+        prescriptions: state.prescriptions,
+        fulfillments: next.fulfillments,
+      });
+      return next;
+    }),
 
   removeFulfillment: (id) =>
-    set((state) => ({
-      fulfillments: state.fulfillments.filter((f) => f.id !== id),
-    })),
+    set((state) => {
+      const next = {
+        fulfillments: state.fulfillments.filter((f) => f.id !== id),
+      };
+      saveWorkflowState({
+        prescriptions: state.prescriptions,
+        fulfillments: next.fulfillments,
+      });
+      return next;
+    }),
 
   getFulfillmentById: (id) => {
     const state = get();
@@ -79,10 +124,17 @@ export const usePrescriptionStore = create<PrescriptionStore>((set, get) => ({
   setError: (error) => set({ error }),
 
   clear: () =>
-    set({
-      prescriptions: [],
-      fulfillments: [],
-      isLoading: false,
-      error: null,
+    set(() => {
+      const next = {
+        prescriptions: [],
+        fulfillments: [],
+        isLoading: false,
+        error: null,
+      };
+      saveWorkflowState({
+        prescriptions: [],
+        fulfillments: [],
+      });
+      return next;
     }),
 }));
