@@ -5,9 +5,11 @@ use integration::helpers::{
 
 use anyhow::{Context, Result};
 use miden_client::{
-    account::{StorageMap, StorageSlot, StorageSlotName},
-    transaction::{OutputNote, TransactionRequestBuilder},
+    account::{StorageMap, StorageSlot, StorageSlotName, StorageMapKey},
+    transaction::TransactionRequestBuilder,
+    note::Note,
     Felt, Word,
+    Deserializable,
 };
 use std::{path::Path, sync::Arc};
 
@@ -28,26 +30,41 @@ async fn main() -> Result<()> {
     println!("--- Step 1: Account Creation on Testnet ---");
 
     // Build contracts
-    let pharmacist_package = Arc::new(
-        build_project_in_dir(Path::new("../contracts/pharmacist-account"), true)
-            .context("Failed to build pharmacist account contract")?,
-    );
-    let doctor_package = Arc::new(
-        build_project_in_dir(Path::new("../contracts/doctor-account"), true)
-            .context("Failed to build doctor account contract")?,
-    );
-    let prescription_note_package = Arc::new(
-        build_project_in_dir(Path::new("../contracts/prescription-note"), true)
-            .context("Failed to build prescription note contract")?,
-    );
-    let fulfillment_note_package = Arc::new(
-        build_project_in_dir(Path::new("../contracts/fulfillment-note"), true)
-            .context("Failed to build fulfillment note contract")?,
-    );
+    // Prefer prebuilt .masp artifacts in the frontend packages directory if present (ensures compatible format)
+    let frontend_pkg = |name: &str, contract_dir: &str, artifact_name: &str| -> Result<Arc<miden_mast_package::Package>> {
+        // Prefer freshly built contract artifact if present
+        let contract_artifact = format!("{}/target/miden/release/{}.masp", contract_dir, artifact_name);
+        if std::path::Path::new(&contract_artifact).exists() {
+            let bytes = std::fs::read(contract_artifact).context("Failed to read contract artifact file")?;
+            let pkg = miden_mast_package::Package::read_from_bytes(&bytes)
+                .context("Failed to deserialize package from contract artifact")?;
+            return Ok(Arc::new(pkg));
+        }
+
+        // Fallback to frontend artifact
+        let frontend_path = format!("../frontend-template/public/packages/{}.masp", name);
+        if std::path::Path::new(&frontend_path).exists() {
+            let bytes = std::fs::read(frontend_path).context("Failed to read frontend package file")?;
+            let pkg = miden_mast_package::Package::read_from_bytes(&bytes)
+                .context("Failed to deserialize package from frontend artifact")?;
+            return Ok(Arc::new(pkg));
+        }
+
+        // Last-resort: build from contract source
+        Ok(Arc::new(
+            build_project_in_dir(Path::new(contract_dir), true)
+                .context(format!("Failed to build {} contract", contract_dir))?,
+        ))
+    };
+
+    let pharmacist_package = frontend_pkg("pharmacist_account", "contracts/pharmacist-account", "pharmacist_account")?;
+    let doctor_package = frontend_pkg("doctor_account", "contracts/doctor-account", "doctor_account")?;
+    let prescription_note_package = frontend_pkg("prescription_note", "contracts/prescription-note", "prescription_note")?;
+    let fulfillment_note_package = frontend_pkg("fulfillment_note", "contracts/fulfillment-note", "fulfillment_note")?;
 
     // Create pharmacist account with credential hash in slot 0 and clinic name in slot 1
-    let pharmacist_credential_key = Word::from([Felt::new(0), Felt::new(0), Felt::new(0), Felt::new(0)]);
-    let pharmacist_clinic_key = Word::from([Felt::new(0), Felt::new(0), Felt::new(0), Felt::new(1)]);
+    let pharmacist_credential_key = StorageMapKey::new(Word::from([Felt::new(0), Felt::new(0), Felt::new(0), Felt::new(0)]));
+    let pharmacist_clinic_key = StorageMapKey::new(Word::from([Felt::new(0), Felt::new(0), Felt::new(0), Felt::new(1)]));
 
     let pharmacist_storage_slots = vec![StorageSlot::with_map(
         StorageSlotName::new("miden::component::miden_pharmacist_account::storage_map")
@@ -68,8 +85,8 @@ async fn main() -> Result<()> {
     println!("✓ Pharmacist account created: {}", pharmacist_account.id().to_hex());
 
     // Create doctor account with credential hash in slot 0 and specialty in slot 1
-    let doctor_credential_key = Word::from([Felt::new(0), Felt::new(0), Felt::new(0), Felt::new(0)]);
-    let doctor_specialty_key = Word::from([Felt::new(0), Felt::new(0), Felt::new(0), Felt::new(1)]);
+    let doctor_credential_key = StorageMapKey::new(Word::from([Felt::new(0), Felt::new(0), Felt::new(0), Felt::new(0)]));
+    let doctor_specialty_key = StorageMapKey::new(Word::from([Felt::new(0), Felt::new(0), Felt::new(0), Felt::new(1)]));
 
     let doctor_storage_slots = vec![StorageSlot::with_map(
         StorageSlotName::new("miden::component::miden_doctor_account::storage_map")
@@ -126,7 +143,7 @@ async fn main() -> Result<()> {
 
     // Publish prescription note from sender account
     let note_publish_request = TransactionRequestBuilder::new()
-        .own_output_notes(vec![OutputNote::Full(prescription_note.clone())])
+        .own_output_notes(vec![prescription_note.clone()])
         .build()
         .context("Failed to build note publish transaction request")?;
 
@@ -172,7 +189,7 @@ async fn main() -> Result<()> {
 
     // Publish fulfillment note from sender account
     let fulfillment_publish_request = TransactionRequestBuilder::new()
-        .own_output_notes(vec![OutputNote::Full(fulfillment_note.clone())])
+        .own_output_notes(vec![fulfillment_note.clone()])
         .build()
         .context("Failed to build fulfillment note publish transaction request")?;
 
@@ -257,7 +274,7 @@ async fn main() -> Result<()> {
         fulfillment_note.id().to_hex()
     );
 
-    std::fs::write("../../../tasks/testnet-accounts.md", report)
+    std::fs::write("../tasks/testnet-accounts.md", report)
         .context("Failed to write testnet accounts file")?;
 
     println!("=== Phase 4 Deployment Complete ===");
