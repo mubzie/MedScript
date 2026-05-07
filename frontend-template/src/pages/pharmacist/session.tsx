@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { mockPatients } from "@/lib/mock/mockPatients";
 import { mockDoctors } from "@/lib/mock/mockDoctors";
 import { usePrescriptionStore } from "@/store/prescriptionStore";
+import { usePatientQueueStore } from "@/store/patientQueueStore";
 import { midenClient } from "@/lib/miden/midenClient";
 import { Button } from "@/components/shared/Button";
 import { Card } from "@/components/shared/Card";
@@ -28,7 +29,8 @@ export function PharmacistSessionPage() {
   const { patientId } = useParams<{ patientId: string }>();
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const { addPrescription, updateStatus } = usePrescriptionStore();
+  const { addPrescription } = usePrescriptionStore();
+  const { updatePatientStatus } = usePatientQueueStore();
 
   const patient = useMemo(
     () => mockPatients.find((p) => p.id === patientId),
@@ -123,7 +125,7 @@ export function PharmacistSessionPage() {
       };
 
       addPrescription(newPrescription);
-      updateStatus(patientId || "", "Complete");
+      updatePatientStatus(patientId || "", "Complete");
 
       setShowOverlay(false);
 
@@ -200,7 +202,9 @@ export function PharmacistSessionPage() {
                 </div>
                 <div>
                   <p className="text-xs font-medium text-text-tertiary">Appointment</p>
-                  <p className="text-text-primary font-medium">{patient.appointmentTime}</p>
+                  <p className="text-text-primary font-medium">
+                    {patient.appointmentTime.toLocaleString()}
+                  </p>
                 </div>
               </div>
             </Card>

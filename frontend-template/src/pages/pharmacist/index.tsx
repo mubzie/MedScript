@@ -2,12 +2,11 @@ import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { mockPatients } from "@/lib/mock/mockPatients";
 import { usePrescriptionStore } from "@/store/prescriptionStore";
+import { usePatientQueueStore, type QueueStatus } from "@/store/patientQueueStore";
 import { Button } from "@/components/shared/Button";
 import { Card } from "@/components/shared/Card";
 import { Badge } from "@/components/shared/Badge";
 import { Clock, CheckCircle, AlertCircle } from "lucide-react";
-
-type QueueStatus = "Waiting" | "In Session" | "Complete";
 
 interface QueueItem {
   id: string;
@@ -31,6 +30,17 @@ const STATUS_ICONS: Record<QueueStatus, React.ComponentType<any>> = {
 export function PharmacistPage() {
   const navigate = useNavigate();
   const { prescriptions, fulfillments } = usePrescriptionStore();
+  const { getPatientStatus, initializeStatus } = usePatientQueueStore();
+
+  // Initialize patient statuses on first load
+  useMemo(() => {
+    mockPatients.forEach((patient, idx) => {
+      if (!getPatientStatus(patient.id)) {
+        const defaultStatus = (["Waiting", "In Session", "Complete"][idx] as QueueStatus) || "Waiting";
+        initializeStatus(patient.id, defaultStatus);
+      }
+    });
+  }, []);
 
   // Mock today's queue
   const todayQueue: QueueItem[] = useMemo(
@@ -39,9 +49,9 @@ export function PharmacistPage() {
         id: patient.id,
         name: patient.name,
         time: `${9 + idx}:00 AM`,
-        status: (["Waiting", "In Session", "Complete"][idx] as QueueStatus) || "Waiting",
+        status: getPatientStatus(patient.id) || (["Waiting", "In Session", "Complete"][idx] as QueueStatus) || "Waiting",
       })),
-    []
+    [getPatientStatus]
   );
 
   const sentToday = prescriptions.filter(
