@@ -5,6 +5,7 @@ import { useWalletConnection } from "@/hooks/useWalletConnection";
 import { WalletMultiButton } from "@miden-sdk/miden-wallet-adapter";
 import { motion } from "framer-motion";
 import { Button } from "@/components/shared/Button";
+import { TESTNET_TRANSACTIONS } from "@/lib/mock/testnetAccounts";
 
 export function ConnectPage() {
   const navigate = useNavigate();
@@ -56,6 +57,28 @@ export function ConnectPage() {
         <div className="card mb-8">
           <div className="flex justify-center">
             <WalletMultiButton />
+          </div>
+        </div>
+
+        {/* Live on Testnet Panel */}
+        <div className="card mb-6 p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="w-3 h-3 rounded-full bg-green-500 inline-block" />
+              <span className="text-sm font-medium">Deployed on Miden Testnet</span>
+            </div>
+            <details className="text-sm">
+              <summary className="cursor-pointer">View transactions</summary>
+              <ul className="mt-2 list-disc list-inside text-xs">
+                {TESTNET_TRANSACTIONS.map((tx) => (
+                  <li key={tx.hash}>
+                    <a href={tx.explorerUrl} target="_blank" rel="noreferrer" className="text-primary-500 underline">
+                      {tx.label}: {tx.hash}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </details>
           </div>
         </div>
 
