@@ -174,6 +174,23 @@ export class MidenClient {
   }
 
   /**
+   * Create a fulfillment authorization note (doctor step).
+   * 
+   * STUB — to be replaced in Phase 9
+   * Called after doctor approves prescription
+   */
+  async createFulfillmentNote(payload: {
+    pharmacistId: string;
+    medication: string;
+    doctorNotes: string;
+  }): Promise<string> {
+    // STUB — to be replaced in Phase 9
+    console.log(`Creating fulfillment note for pharmacist ${payload.pharmacistId}`);
+    await new Promise((r) => setTimeout(r, 2000));
+    return `fulfillment_${Date.now()}`;
+  }
+
+  /**
    * Mark a prescription as fulfilled (pharmacist step).
    * 
    * STUB — to be replaced in Phase 9
