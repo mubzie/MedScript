@@ -30,12 +30,15 @@ export function PharmacistSessionPage() {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { addPrescription } = usePrescriptionStore();
-  const { updatePatientStatus } = usePatientQueueStore();
+  const { updatePatientStatus, getPatientStatus } = usePatientQueueStore();
 
   const patient = useMemo(
     () => mockPatients.find((p) => p.id === patientId),
     [patientId]
   );
+
+  const patientStatus = getPatientStatus(patientId || "");
+  const isSessionComplete = patientStatus === "Complete";
 
   const [currentStep, setCurrentStep] = useState<Step>(1);
   const [showOverlay, setShowOverlay] = useState(false);
@@ -216,10 +219,10 @@ export function PharmacistSessionPage() {
                 {patient.testResults.map((result, idx) => {
                   const flagColor =
                     result.flag === "normal"
-                      ? "bg-status-normal/20 text-status-normal"
+                      ? "bg-primary-700/20 text-primary-700"
                       : result.flag === "low"
-                        ? "bg-status-low/20 text-status-low"
-                        : "bg-status-high/20 text-status-high";
+                        ? "bg-amber-500/20 text-amber-700"
+                        : "bg-red-500/20 text-red-700";
 
                   return (
                     <div key={idx} className="pb-3 border-b border-border-default last:border-0">
@@ -243,8 +246,21 @@ export function PharmacistSessionPage() {
           {/* Right Column: Form */}
           <div className="lg:col-span-3">
             <Card>
+              {isSessionComplete && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6 flex items-start gap-3">
+                  <div className="flex-shrink-0">
+                    <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-green-900">Session Complete</p>
+                    <p className="text-sm text-green-800">Prescription has already been sent. View only.</p>
+                  </div>
+                </div>
+              )}
               {/* Step Indicator */}
-              <div className="flex items-center justify-between mb-8 pb-8 border-b border-border-default">
+              <div className={`flex items-center justify-between mb-8 pb-8 border-b border-border-default ${isSessionComplete ? 'opacity-50 pointer-events-none' : ''}`}>
                 {([1, 2, 3, 4] as const).map((step) => (
                   <div key={step} className="flex items-center flex-1">
                     <div
@@ -523,22 +539,22 @@ export function PharmacistSessionPage() {
                 <Button
                   variant="secondary"
                   onClick={handlePreviousStep}
-                  disabled={currentStep === 1}
+                  disabled={currentStep === 1 || isSessionComplete}
                 >
                   Back
                 </Button>
 
                 {currentStep === 4 ? (
                   <>
-                    <Button variant="secondary" onClick={() => navigate("/pharmacist")}>
+                    <Button variant="secondary" onClick={() => navigate("/pharmacist")} disabled={isSessionComplete}>
                       Cancel
                     </Button>
-                    <Button variant="primary" onClick={handleSend}>
+                    <Button variant="primary" onClick={handleSend} disabled={isSessionComplete}>
                       Send Prescription Note
                     </Button>
                   </>
                 ) : (
-                  <Button variant="primary" onClick={handleNextStep}>
+                  <Button variant="primary" onClick={handleNextStep} disabled={isSessionComplete}>
                     Next
                     <ChevronRight className="w-4 h-4 ml-2" />
                   </Button>
