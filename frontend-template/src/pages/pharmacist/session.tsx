@@ -94,37 +94,38 @@ export function PharmacistSessionPage() {
     setShowOverlay(true);
     try {
       // Call midenClient stubs (will simulate 2s delay)
-      await midenClient.createPrescriptionNote({
+      const createdNote = await midenClient.createPrescriptionNote({
         patientId: patient.id,
-        doctorId: selectedDoctor.id,
-        pharmacistId: "0x962c393e4be8b7002d78783908a73e",
+        doctorId: selectedDoctor.midenAccountId,
+        testResultsHash: "0x" + "a".repeat(64),
         medication: formState.medicationName,
         dosage: `${formState.dosage}${formState.dosageUnit}`,
         frequency: formState.frequency,
         duration: `${formState.duration}${formState.durationUnit}`,
-        pharmacistNotes: formState.notes,
+        notes: formState.notes,
+        expiryDays: 7,
       });
 
       await midenClient.sendNoteToDoctor(
-        "mock-note-id",
-        selectedDoctor.id
+        createdNote,
+        selectedDoctor.midenAccountId,
       );
 
       // Update store
       const newPrescription = {
-        id: `note-${Date.now()}`,
+        ...createdNote,
         patientId: patient.id,
         pharmacistId: "0x962c393e4be8b7002d78783908a73e",
-        doctorId: selectedDoctor.id,
+        doctorId: selectedDoctor.midenAccountId,
         testResultsHash: "0x" + "a".repeat(64),
         medication: formState.medicationName,
         dosage: `${formState.dosage}${formState.dosageUnit}`,
         frequency: formState.frequency,
         duration: `${formState.duration}${formState.durationUnit}`,
         pharmacistNotes: formState.notes,
-        status: "in_transit" as const,
-        createdAt: new Date().toISOString(),
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        status: "pending_review" as const,
+        createdAt: new Date(),
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       };
 
       addPrescription(newPrescription);
@@ -134,11 +135,11 @@ export function PharmacistSessionPage() {
 
       // Show success screen
       navigate(`/pharmacist/success`, {
-        state: {
-          doctorName: selectedDoctor.name,
-          noteId: newPrescription.id,
-        },
-      });
+          state: {
+            doctorName: selectedDoctor.name,
+            noteId: createdNote.id,
+          },
+        });
     } catch (error) {
       setShowOverlay(false);
       showToast("Failed to send prescription note. Please try again.", "error");
@@ -161,7 +162,7 @@ export function PharmacistSessionPage() {
 
   return (
     <div className="min-h-screen bg-surface-base">
-      {showOverlay && <ZKProofOverlay />}
+      <ZKProofOverlay visible={showOverlay} />
 
       <main className="max-w-7xl mx-auto px-6 py-8">
         {/* Header */}
@@ -206,7 +207,7 @@ export function PharmacistSessionPage() {
                 <div>
                   <p className="text-xs font-medium text-text-tertiary">Appointment</p>
                   <p className="text-text-primary font-medium">
-                    {patient.appointmentTime.toLocaleString()}
+                    {patient.appointmentTime?.toLocaleString() ?? "Not scheduled"}
                   </p>
                 </div>
               </div>
@@ -215,23 +216,31 @@ export function PharmacistSessionPage() {
             {/* Test Results */}
             <Card>
               <h2 className="text-lg font-semibold text-text-primary mb-4">Recent Test Results</h2>
-              <div className="space-y-3 max-h-96 overflow-y-auto">
-                {patient.testResults.map((result, idx) => {
-                  return (
-                    <div key={idx} className="pb-3 border-b border-border-default last:border-0">
-                      <div className="flex items-start justify-between mb-1">
-                        <p className="text-sm font-medium text-text-primary">{result.type}</p>
-                        <Badge type={result.flag as "normal" | "low" | "high"}>{result.flag}</Badge>
-                      </div>
-                      <p className="text-xs text-text-secondary">
-                        {result.value} {result.unit}
-                      </p>
-                      <p className="text-xs text-text-tertiary">
-                        Range: {result.referenceRange}
-                      </p>
-                    </div>
-                  );
-                })}
+              <div className="max-h-96 overflow-y-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border-default text-left">
+                      <th className="py-2 pr-2 text-xs font-semibold text-text-secondary">Test</th>
+                      <th className="py-2 pr-2 text-xs font-semibold text-text-secondary">Value</th>
+                      <th className="py-2 pr-2 text-xs font-semibold text-text-secondary">Reference</th>
+                      <th className="py-2 text-xs font-semibold text-text-secondary">Flag</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {patient.testResults.map((result, idx) => (
+                      <tr key={idx} className="border-b border-border-default last:border-0">
+                        <td className="py-3 pr-2 font-medium text-text-primary">{result.type}</td>
+                        <td className="py-3 pr-2 text-text-secondary">
+                          {result.value} {result.unit}
+                        </td>
+                        <td className="py-3 pr-2 text-text-tertiary">{result.referenceRange}</td>
+                        <td className="py-3">
+                          <Badge type={result.flag}>{result.flag}</Badge>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </Card>
           </div>
@@ -314,7 +323,7 @@ export function PharmacistSessionPage() {
                             <p className="font-medium text-text-primary">{doctor.name}</p>
                             <p className="text-sm text-text-secondary">{doctor.specialty}</p>
                           </div>
-                          <Badge className="bg-status-normal/20 text-status-normal text-xs">
+                          <Badge type="normal">
                             Verified
                           </Badge>
                         </div>
@@ -486,13 +495,14 @@ export function PharmacistSessionPage() {
                       <div>
                         <p className="text-xs font-medium text-text-tertiary">Patient</p>
                         <p className="text-text-primary font-medium">{patient.name}</p>
+                        <p className="text-xs text-text-secondary font-mono">{patient.id}</p>
                       </div>
                       <div>
                         <p className="text-xs font-medium text-text-tertiary">Doctor</p>
                         <p className="text-text-primary font-medium">{selectedDoctor?.name}</p>
                         {selectedDoctor && (
                           <p className="text-xs text-text-secondary font-mono">
-                            {selectedDoctor.id}
+                            {selectedDoctor.midenAccountId}
                           </p>
                         )}
                       </div>

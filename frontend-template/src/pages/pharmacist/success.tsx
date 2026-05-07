@@ -11,6 +11,7 @@ export function PharmacistSuccessPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const state = location.state as SuccessState | undefined;
+  const doctorDisplayName = state?.doctorName.replace(/^Dr\.\s*/i, "");
 
   if (!state) {
     return (
@@ -34,7 +35,7 @@ export function PharmacistSuccessPage() {
         </h1>
 
         <p className="text-lg text-text-secondary mb-6">
-          Prescription note sent to <strong>Dr. {state.doctorName}</strong>
+          Prescription note sent to <strong>Dr. {doctorDisplayName}</strong>
         </p>
 
         <div className="bg-surface-sunken rounded-lg p-6 mb-6">
@@ -43,7 +44,7 @@ export function PharmacistSuccessPage() {
         </div>
 
         <p className="text-text-secondary mb-8">
-          Instruct the patient to visit Dr. {state.doctorName} with the note ID for approval.
+          Instruct the patient to visit Dr. {doctorDisplayName} with the note ID for approval.
         </p>
 
         <Button variant="primary" onClick={() => navigate("/pharmacist")} className="w-full">

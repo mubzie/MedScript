@@ -1,22 +1,75 @@
 import { useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { mockPrescriptionInbox } from "@/lib/mock/mockPrescriptionInbox";
+import { mockPatients } from "@/lib/mock/mockPatients";
 import { useDoctorStore } from "@/store/doctorStore";
-import { Button } from "@/components/shared/Button";
+import { usePrescriptionStore } from "@/store/prescriptionStore";
 import { Card } from "@/components/shared/Card";
 import { Badge } from "@/components/shared/Badge";
 import { Clock, CheckCircle, AlertCircle, Inbox } from "lucide-react";
+import type { PrescriptionNote } from "@/types";
+
+const STATUS_BADGE_TYPE = {
+  pending_review: "amber",
+  approved: "normal",
+  rejected: "high",
+} as const;
+
+function anonymizePatientId(patientId: string) {
+  return `${patientId.slice(0, 3)}***`;
+}
+
+function toInboxStatus(status: PrescriptionNote["status"]): "pending_review" | "approved" | "rejected" {
+  if (status === "approved") return "approved";
+  if (status === "rejected") return "rejected";
+  return "pending_review";
+}
+
+function mapPrescriptionToInboxNote(note: PrescriptionNote) {
+  const patient = mockPatients.find((p) => p.id === note.patientId);
+
+  return {
+    id: note.id,
+    patientId: note.patientId,
+    patientName: patient?.name ?? `Patient ${note.patientId}`,
+    patientIdAnonymized: anonymizePatientId(note.patientId),
+    pharmacistName: "Sarah Chen",
+    pharmacistId: note.pharmacistId,
+    pharmacistVerified: true,
+    medication: note.medication,
+    dosage: note.dosage,
+    frequency: note.frequency,
+    duration: note.duration,
+    testResults: (patient?.testResults ?? []).map((result) => ({
+      type: result.type,
+      value: String(result.value),
+      unit: result.unit,
+      referenceRange: result.referenceRange,
+      flag: result.flag,
+    })),
+    pharmacistNotes: note.pharmacistNotes,
+    createdAt: note.createdAt,
+    expiresAt: note.expiresAt,
+    status: toInboxStatus(note.status),
+  };
+}
 
 export function DoctorPage() {
   const navigate = useNavigate();
   const { prescriptionInbox, initializeInbox, getStats } = useDoctorStore();
+  const { prescriptions } = usePrescriptionStore();
 
-  // Initialize inbox on mount
+  // Prefer pharmacist-created prescriptions; fallback to static mock inbox.
   useEffect(() => {
+    if (prescriptions.length > 0) {
+      initializeInbox(prescriptions.map(mapPrescriptionToInboxNote));
+      return;
+    }
+
     if (prescriptionInbox.length === 0) {
       initializeInbox(mockPrescriptionInbox);
     }
-  }, []);
+  }, [prescriptions, prescriptionInbox.length, initializeInbox]);
 
   const stats = useMemo(() => getStats(), [getStats, prescriptionInbox]);
 
@@ -122,7 +175,7 @@ export function DoctorPage() {
                         <p className="text-sm font-semibold text-text-primary">
                           Patient {prescription.patientIdAnonymized}
                         </p>
-                        <Badge type={prescription.status === "pending_review" ? "amber" : prescription.status === "approved" ? "normal" : "high"}>
+                        <Badge type={STATUS_BADGE_TYPE[prescription.status]}>
                           {prescription.status.replace("_", " ")}
                         </Badge>
                       </div>

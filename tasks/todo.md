@@ -493,3 +493,33 @@ Frontend foundation now complete with:
 - ✅ All routes render cleanly
 
 Next: Build pharmacist workflow (create/send prescriptions to doctors)
+
+---
+
+# Phase 7: Pharmacist Workflow
+
+## Status: ✅ COMPLETE
+
+### Tasks
+- [x] Verify existing Phase 7 implementation against requirements
+- [x] Implement/fix pharmacist home sections (queue, pending fulfillments, stats)
+- [x] Implement/fix full 4-step patient session flow
+- [x] Ensure send flow shows ZKProofOverlay and success confirmation
+- [x] Ensure patient status updates to Complete after send
+- [x] Add Phase 7 tests in `frontend-template/src/__tests__/`
+- [x] Run `cd frontend-template && npx vitest --run`
+
+---
+
+# Phase 8: Doctor Review Workflow
+
+## Status: ✅ COMPLETE
+
+### Tasks
+- [x] Wire doctor inbox to pharmacist-sent prescriptions from `prescriptionStore`
+- [x] Fix doctor prescription route and page wiring
+- [x] Implement approve/reject state updates across doctor + prescription stores
+- [x] Create fulfillment note on approval for pharmacist pending fulfillments
+- [x] Ensure ZKProofOverlay behavior is consistent in doctor review actions
+- [x] Add Phase 8 tests in `frontend-template/src/__tests__/`
+- [x] Run `cd frontend-template && npx vitest --run`

@@ -1,6 +1,7 @@
-import { useState, useMemo, useCallback } from "react";
+import { useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useDoctorStore } from "@/store/doctorStore";
+import { usePrescriptionStore } from "@/store/prescriptionStore";
 import { midenClient } from "@/lib/miden/midenClient";
 import { Button } from "@/components/shared/Button";
 import { Card } from "@/components/shared/Card";
@@ -8,7 +9,7 @@ import { Badge } from "@/components/shared/Badge";
 import { ZKProofOverlay } from "@/components/shared/ZKProofOverlay";
 import { ConfirmationModal } from "@/components/shared/ConfirmationModal";
 import { useToast } from "@/hooks/useToast";
-import { ChevronLeft } from "lucide-react";
+import type { FulfillmentAuthorizationNote } from "@/types";
 
 type DecisionType = "approve" | "approve-modifications" | "reject" | null;
 
@@ -23,8 +24,12 @@ export function DoctorPrescriptionPage() {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { getPrescriptionById, updatePrescriptionStatus } = useDoctorStore();
+  const { updatePrescription, addFulfillment } = usePrescriptionStore();
 
-  const prescription = useMemo(() => getPrescriptionById(noteId || ""), [noteId]);
+  const prescription = useMemo(
+    () => getPrescriptionById(noteId || ""),
+    [getPrescriptionById, noteId],
+  );
 
   const [showOverlay, setShowOverlay] = useState(false);
   const [showRejectConfirm, setShowRejectConfirm] = useState(false);
@@ -36,6 +41,13 @@ export function DoctorPrescriptionPage() {
 
   const [showApprovalConfirm, setShowApprovalConfirm] = useState(false);
   const [authorizationNoteId, setAuthorizationNoteId] = useState("");
+
+  const statusBadgeType = useMemo(() => {
+    if (!prescription) return "neutral" as const;
+    if (prescription.status === "approved") return "normal" as const;
+    if (prescription.status === "rejected") return "high" as const;
+    return "amber" as const;
+  }, [prescription]);
 
   if (!prescription) {
     return (
@@ -52,17 +64,32 @@ export function DoctorPrescriptionPage() {
     setShowOverlay(true);
     try {
       await midenClient.consumeNote(prescription.id);
-      await midenClient.createFulfillmentNote({
-        pharmacistId: prescription.pharmacistId,
+      const fulfillment = await midenClient.approvePrescription({
+        prescriptionNoteId: prescription.id,
         medication: prescription.medication,
+        dosage: prescription.dosage,
         doctorNotes: decision.doctorNotes,
+        isModified: decision.type === "approve-modifications",
       });
 
-      const noteId = `auth-${Date.now()}`;
-      setAuthorizationNoteId(noteId);
+      const fulfillmentForStore: FulfillmentAuthorizationNote = {
+        ...fulfillment,
+        prescriptionNoteId: prescription.id,
+        pharmacistId: prescription.pharmacistId,
+        approvedMedication: prescription.medication,
+        approvedDosage: prescription.dosage,
+        doctorNotes: decision.doctorNotes,
+        isModified: decision.type === "approve-modifications",
+        status: "pending",
+      };
+
+      addFulfillment(fulfillmentForStore);
+      setAuthorizationNoteId(fulfillment.id);
       updatePrescriptionStatus(prescription.id, "approved");
+      updatePrescription(prescription.id, { status: "approved" });
+      showToast("Prescription approved. Authorization sent to pharmacist.", "success");
       setShowApprovalConfirm(true);
-    } catch (error) {
+    } catch {
       showToast("Failed to approve prescription", "error");
     } finally {
       setShowOverlay(false);
@@ -75,9 +102,10 @@ export function DoctorPrescriptionPage() {
     try {
       await midenClient.rejectNote(prescription.id, decision.rejectReason);
       updatePrescriptionStatus(prescription.id, "rejected");
+      updatePrescription(prescription.id, { status: "rejected" });
       showToast("Prescription rejected. Pharmacist notified.", "success");
       setTimeout(() => navigate("/doctor"), 1500);
-    } catch (error) {
+    } catch {
       showToast("Failed to reject prescription", "error");
     } finally {
       setShowOverlay(false);
@@ -105,7 +133,7 @@ export function DoctorPrescriptionPage() {
 
   return (
     <div className="min-h-screen bg-surface-base">
-      {showOverlay && <ZKProofOverlay />}
+      <ZKProofOverlay visible={showOverlay} />
       <ConfirmationModal
         isOpen={showRejectConfirm}
         title="Reject Prescription?"
@@ -143,7 +171,7 @@ export function DoctorPrescriptionPage() {
                   <p className="text-xs font-medium text-text-tertiary">Note ID</p>
                   <p className="font-mono text-sm text-text-primary">{prescription.id}</p>
                 </div>
-                <Badge type={prescription.status as any}>{prescription.status}</Badge>
+                <Badge type={statusBadgeType}>{prescription.status}</Badge>
               </div>
               <div className={`text-sm font-medium ${getExpiryColor(prescription.expiresAt)}`}>
                 {getExpiryText(prescription.expiresAt)}

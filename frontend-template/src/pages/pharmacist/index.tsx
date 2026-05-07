@@ -1,11 +1,10 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { mockPatients } from "@/lib/mock/mockPatients";
 import { usePrescriptionStore } from "@/store/prescriptionStore";
 import { usePatientQueueStore, type QueueStatus } from "@/store/patientQueueStore";
 import { Button } from "@/components/shared/Button";
 import { Card } from "@/components/shared/Card";
-import { Badge } from "@/components/shared/Badge";
 import { Clock, CheckCircle, AlertCircle } from "lucide-react";
 
 interface QueueItem {
@@ -15,13 +14,13 @@ interface QueueItem {
   status: QueueStatus;
 }
 
-const STATUS_COLORS: Record<QueueStatus, string> = {
+const STATUS_BADGE_STYLES: Record<QueueStatus, string> = {
   Waiting: "bg-status-normal/20 text-status-normal border-status-normal/30",
   "In Session": "bg-status-amber/20 text-status-amber border-status-amber/30",
   Complete: "bg-status-low/20 text-status-low border-status-low/30",
 };
 
-const STATUS_ICONS: Record<QueueStatus, React.ComponentType<any>> = {
+const STATUS_ICONS: Record<QueueStatus, typeof Clock> = {
   Waiting: Clock,
   "In Session": AlertCircle,
   Complete: CheckCircle,
@@ -33,14 +32,14 @@ export function PharmacistPage() {
   const { getPatientStatus, initializeStatus } = usePatientQueueStore();
 
   // Initialize patient statuses on first load
-  useMemo(() => {
+  useEffect(() => {
     mockPatients.forEach((patient, idx) => {
       if (!getPatientStatus(patient.id)) {
         const defaultStatus = (["Waiting", "In Session", "Complete"][idx] as QueueStatus) || "Waiting";
         initializeStatus(patient.id, defaultStatus);
       }
     });
-  }, []);
+  }, [getPatientStatus, initializeStatus]);
 
   // Mock today's queue
   const todayQueue: QueueItem[] = useMemo(
@@ -48,7 +47,11 @@ export function PharmacistPage() {
       mockPatients.map((patient, idx) => ({
         id: patient.id,
         name: patient.name,
-        time: `${9 + idx}:00 AM`,
+        time:
+          patient.appointmentTime?.toLocaleTimeString([], {
+            hour: "numeric",
+            minute: "2-digit",
+          }) ?? `${9 + idx}:00 AM`,
         status: getPatientStatus(patient.id) || (["Waiting", "In Session", "Complete"][idx] as QueueStatus) || "Waiting",
       })),
     [getPatientStatus]
@@ -151,12 +154,12 @@ export function PharmacistPage() {
                           </td>
                           <td className="px-4 py-4 text-text-secondary text-sm">{item.time}</td>
                           <td className="px-4 py-4">
-                            <Badge
-                              className={`flex items-center gap-1.5 w-fit ${STATUS_COLORS[item.status]}`}
+                            <span
+                              className={`inline-flex items-center gap-1.5 w-fit rounded-full border px-3 py-1 text-sm font-semibold ${STATUS_BADGE_STYLES[item.status]}`}
                             >
                               <StatusIcon className="w-3.5 h-3.5" />
                               {item.status}
-                            </Badge>
+                            </span>
                           </td>
                           <td className="px-4 py-4 text-right">
                             <Button
@@ -164,7 +167,7 @@ export function PharmacistPage() {
                               size="sm"
                               onClick={() => navigate(`/pharmacist/session/${item.id}`)}
                             >
-                              {item.status === "Complete" ? "View" : "Start Session"}
+                              Start Session
                             </Button>
                           </td>
                         </tr>
@@ -187,7 +190,7 @@ export function PharmacistPage() {
                   <span className="text-2xl">📋</span>
                 </div>
                 <h3 className="text-lg font-semibold text-text-primary mb-2">
-                  No pending fulfillments
+                  No pending fulfillments from doctors
                 </h3>
                 <p className="text-sm text-text-secondary">
                   Fulfillment authorization notes from doctors will appear here

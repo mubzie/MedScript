@@ -5,6 +5,7 @@ import { PharmacistPage } from "@/pages/pharmacist";
 import { PharmacistSessionPage } from "@/pages/pharmacist/session";
 import { PharmacistSuccessPage } from "@/pages/pharmacist/success";
 import { DoctorPage } from "@/pages/doctor";
+import { DoctorPrescriptionPage } from "@/pages/doctor/prescription";
 import { PatientPage } from "@/pages/patient";
 import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
 import { ProtectedRoute } from "@/components/layout/ProtectedRoute";
@@ -81,7 +82,7 @@ export default function App() {
               element={
                 <ProtectedRoute allowedRoles={["doctor"]}>
                   <AuthenticatedLayout>
-                    <DoctorPage />
+                    <DoctorPrescriptionPage />
                   </AuthenticatedLayout>
                 </ProtectedRoute>
               }
