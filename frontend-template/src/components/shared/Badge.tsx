@@ -10,9 +10,9 @@ interface BadgeProps {
 }
 
 const statusColors: Record<StatusType, string> = {
-  normal: "bg-status-normal/10 text-status-normal",
-  low: "bg-status-low/10 text-status-low",
-  high: "bg-status-high/10 text-status-high",
+  normal: "bg-green-100 text-green-800",
+  low: "bg-yellow-100 text-yellow-800",
+  high: "bg-red-100 text-red-800",
   amber: "bg-status-amber/10 text-status-amber",
   neutral: "bg-status-neutral/10 text-status-neutral",
 };

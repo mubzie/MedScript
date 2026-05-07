@@ -217,18 +217,11 @@ export function PharmacistSessionPage() {
               <h2 className="text-lg font-semibold text-text-primary mb-4">Recent Test Results</h2>
               <div className="space-y-3 max-h-96 overflow-y-auto">
                 {patient.testResults.map((result, idx) => {
-                  const flagColor =
-                    result.flag === "normal"
-                      ? "bg-emerald-100 text-emerald-900"
-                      : result.flag === "low"
-                        ? "bg-amber-100 text-amber-900"
-                        : "bg-red-100 text-red-900";
-
                   return (
                     <div key={idx} className="pb-3 border-b border-border-default last:border-0">
                       <div className="flex items-start justify-between mb-1">
                         <p className="text-sm font-medium text-text-primary">{result.type}</p>
-                        <Badge className={`text-xs ${flagColor}`}>{result.flag}</Badge>
+                        <Badge type={result.flag as "normal" | "low" | "high"}>{result.flag}</Badge>
                       </div>
                       <p className="text-xs text-text-secondary">
                         {result.value} {result.unit}
