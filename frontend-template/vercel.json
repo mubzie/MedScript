@@ -3,6 +3,9 @@
   "outputDirectory": "dist",
   "installCommand": "yarn install",
   "framework": "vite",
+  "rewrites": [
+    { "source": "(.*)", "destination": "/" }
+  ],
   "headers": [
     {
       "source": "(.*)",
