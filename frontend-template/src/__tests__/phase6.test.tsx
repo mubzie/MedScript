@@ -16,17 +16,6 @@ const {
   mockGetIncomingNotes: vi.fn().mockResolvedValue([]),
 }));
 
-// Mock @miden-sdk/miden-wallet-adapter
-vi.mock("@miden-sdk/miden-wallet-adapter", () => ({
-  WalletProvider: ({ children }: { children: React.ReactNode }) =>
-    children,
-  MidenFiSignerProvider: ({ children }: { children: React.ReactNode }) =>
-    children,
-  WalletModalProvider: ({ children }: { children: React.ReactNode }) =>
-    children,
-  MidenWallet: vi.fn(() => ({ name: "MidenWallet" })),
-}));
-
 vi.mock("@/lib/miden/midenClient", () => ({
   connectWallet: (...args: unknown[]) => mockConnectWallet(...args),
   midenClient: {
@@ -80,6 +69,24 @@ describe("Phase 6: Wallet Integration & Protected Routes", () => {
       ).toBeInTheDocument();
       expect(screen.getByText("MedScript")).toBeInTheDocument();
     });
+
+    it.each([
+      ["pharmacist", /connect as pharmacist/i],
+      ["doctor", /connect as doctor/i],
+      ["patient", /connect as patient/i],
+    ] as const)(
+      "calls connectWallet with %s when the role button is clicked",
+      async (role, buttonName) => {
+        const user = userEvent.setup();
+        render(<App />);
+
+        await user.click(screen.getByRole("button", { name: buttonName }));
+
+        await waitFor(() => {
+          expect(mockConnectWallet).toHaveBeenCalledWith(role);
+        });
+      },
+    );
 
     it("shows the two-stage loading state while connecting", async () => {
       const user = userEvent.setup();

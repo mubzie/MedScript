@@ -2,9 +2,6 @@ import { render, screen } from "@testing-library/react";
 import { vi, describe, it, expect, beforeEach } from "vitest";
 
 vi.mock("@miden-sdk/react", () => import("@/__tests__/mocks/miden-sdk-react"));
-vi.mock("@miden-sdk/miden-wallet-adapter", () => ({
-  WalletMultiButton: () => <button>Connect Wallet</button>,
-}));
 vi.mock("@/components/Counter", () => ({
   Counter: () => <div data-testid="counter">Counter Mock</div>,
 }));
@@ -24,7 +21,9 @@ describe("AppContent", () => {
     expect(screen.getByAltText("Vite logo")).toBeInTheDocument();
     expect(screen.getByAltText("React logo")).toBeInTheDocument();
     expect(screen.getByAltText("Miden logo")).toBeInTheDocument();
-    expect(screen.getByText("Connect Wallet")).toBeInTheDocument();
+    expect(
+      screen.getByText("Use MedScript Connect to create a testnet account."),
+    ).toBeInTheDocument();
     expect(screen.getByTestId("counter")).toBeInTheDocument();
   });
 

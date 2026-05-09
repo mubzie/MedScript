@@ -16,6 +16,35 @@ async function sleep(ms: number) {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function getRemoteProver() {
+  const { TransactionProver } = await import("@miden-sdk/miden-sdk");
+  return TransactionProver.newRemoteProver(TX_PROVER_ENDPOINT);
+}
+
+async function getStoredAccountId(role: AccountType) {
+  const stored = getStoredAccountForRole(role);
+  if (!stored) {
+    throw new Error(`Missing stored ${role} account`);
+  }
+
+  const { AccountId } = await import("@miden-sdk/miden-sdk");
+  return AccountId.fromBech32(stored.id);
+}
+
+async function submitTransactionRequest(
+  accountId: any,
+  transactionRequest: any,
+): Promise<string> {
+  const client = await getClient();
+  const prover = await getRemoteProver();
+  const transactionId = await client.submitNewTransactionWithProver(
+    accountId,
+    transactionRequest,
+    prover,
+  );
+  return transactionId.toHex();
+}
+
 export async function getClient() {
   if (_client) return _client;
   const { WebClient } = await import("@miden-sdk/miden-sdk");
@@ -122,10 +151,23 @@ export const midenClient = {
 
   async sendNoteToDoctor(
     _note: PrescriptionNote,
-    _doctorAccountId: string,
+    doctorAccountId: string,
   ): Promise<string> {
-    await sleep(800);
-    return `tx_${Date.now()}`;
+    const senderAccountId = await getStoredAccountId("pharmacist");
+    const { AccountId, NoteType } = await import("@miden-sdk/miden-sdk");
+    const targetAccountId = AccountId.fromBech32(doctorAccountId);
+    const client = await getClient();
+    const senderAccount = await client.getAccount(senderAccountId);
+    const faucetId = senderAccount.vault().fungibleAssets()[0]?.faucetId() ?? senderAccountId;
+    const transactionRequest = client.newSendTransactionRequest(
+      senderAccountId,
+      targetAccountId,
+      faucetId,
+      NoteType.Private,
+      0n,
+    );
+
+    return submitTransactionRequest(senderAccountId, transactionRequest);
   },
 
   async getIncomingNotes(_accountId?: string): Promise<PrescriptionNote[]> {
@@ -134,14 +176,44 @@ export const midenClient = {
   },
 
   async consumeNote(_noteId: string): Promise<string> {
-    await sleep(800);
-    return `tx_consume_${Date.now()}`;
+    const accountId = await getStoredAccountId("doctor");
+    const client = await getClient();
+    const consumableNotes = await client.getConsumableNotes(accountId);
+    const noteToConsume = consumableNotes.find(
+      (note: any) => note.inputNoteRecord().toNote().id().toHex() === _noteId,
+    )?.inputNoteRecord().toNote();
+
+    if (!noteToConsume) {
+      throw new Error("Consumable note not found");
+    }
+
+    const transactionRequest = client.newConsumeTransactionRequest([noteToConsume]);
+    return submitTransactionRequest(accountId, transactionRequest);
   },
 
   async approvePrescription(
     payload: ApprovePrescriptionRequest,
   ): Promise<ApprovalResult> {
-    await sleep(1200);
+    const senderAccountId = await getStoredAccountId("doctor");
+    const { AccountId, NoteType } = await import("@miden-sdk/miden-sdk");
+    const pharmacistAccount = getStoredAccountForRole("pharmacist");
+    if (!pharmacistAccount) {
+      throw new Error("Missing stored pharmacist account");
+    }
+
+    const targetAccountId = AccountId.fromBech32(pharmacistAccount.id);
+    const client = await getClient();
+    const senderAccount = await client.getAccount(senderAccountId);
+    const faucetId = senderAccount.vault().fungibleAssets()[0]?.faucetId() ?? senderAccountId;
+    const transactionRequest = client.newSendTransactionRequest(
+      senderAccountId,
+      targetAccountId,
+      faucetId,
+      NoteType.Private,
+      0n,
+    );
+    const transactionId = await submitTransactionRequest(senderAccountId, transactionRequest);
+
     return {
       id: `fulfillment_${Date.now()}`,
       prescriptionNoteId: payload.prescriptionNoteId,
@@ -153,7 +225,7 @@ export const midenClient = {
       isModified: payload.isModified,
       status: "approved",
       createdAt: new Date(),
-      transactionId: `tx_approve_${Date.now()}`,
+      transactionId,
     };
   },
 
@@ -167,8 +239,21 @@ export const midenClient = {
     medication: string;
     doctorNotes: string;
   }): Promise<string> {
-    await sleep(800);
-    return `fulfillment_${payload.pharmacistId}_${Date.now()}`;
+    const senderAccountId = await getStoredAccountId("doctor");
+    const { AccountId, NoteType } = await import("@miden-sdk/miden-sdk");
+    const targetAccountId = AccountId.fromBech32(payload.pharmacistId);
+    const client = await getClient();
+    const senderAccount = await client.getAccount(senderAccountId);
+    const faucetId = senderAccount.vault().fungibleAssets()[0]?.faucetId() ?? senderAccountId;
+    const transactionRequest = client.newSendTransactionRequest(
+      senderAccountId,
+      targetAccountId,
+      faucetId,
+      NoteType.Private,
+      0n,
+    );
+
+    return submitTransactionRequest(senderAccountId, transactionRequest);
   },
 
   async markFulfilled(_prescriptionNoteId: string): Promise<string> {
