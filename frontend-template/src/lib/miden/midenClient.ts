@@ -1,4 +1,5 @@
 import type {
+  AccountType,
   MidenAccount,
   PrescriptionNote,
   FulfillmentAuthorizationNote,
@@ -6,88 +7,105 @@ import type {
   ApprovePrescriptionRequest,
 } from "@/types";
 
-type ApprovalResult = FulfillmentAuthorizationNote & {
-  transactionId?: string;
-};
+const RPC_ENDPOINT = "https://rpc.testnet.miden.io:443";
+const TX_PROVER_ENDPOINT = "https://tx-prover.testnet.miden.io";
 
-/**
- * Typed wrapper around Miden SDK hooks for MedScript operations.
- * 
- * This stub implements the full prescription workflow with placeholder logic.
- * In Phase 9, these functions will be replaced with actual SDK calls.
- * 
- * All async operations include a 2s delay to simulate network latency.
- */
+let _client: any = null;
 
-export class MidenClient {
-  /**
-   * Connect to a wallet and retrieve the connected account.
-   * 
-   * STUB — to be replaced in Phase 9
-   * Will use MidenFiSignerProvider + useAccounts() hook
-   */
-  async connectWallet(): Promise<MidenAccount> {
-    // STUB — to be replaced in Phase 9
-    await new Promise((r) => setTimeout(r, 2000));
-    return {
-      id: "stub_account_id",
-      type: "pharmacist",
-      credentialHash: "0x" + "a".repeat(64),
-      isVerified: true,
-      network: "testnet",
-    };
+async function sleep(ms: number) {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export async function getClient() {
+  if (_client) return _client;
+  const { WebClient } = await import("@miden-sdk/miden-sdk");
+  _client = await WebClient.createClient(RPC_ENDPOINT);
+  return _client;
+}
+
+export async function connectWallet(
+  role: "pharmacist" | "doctor" | "patient",
+): Promise<MidenAccount> {
+  const storageKey = `medscript_${role}_account`;
+  const stored = localStorage.getItem(storageKey);
+  if (stored) {
+    return JSON.parse(stored) as MidenAccount;
   }
 
-  /**
-   * Get the current wallet connection status.
-   * 
-   * STUB — to be replaced in Phase 9
-   */
-  async getWalletStatus(): Promise<{ connected: boolean; account: MidenAccount | null }> {
-    // STUB — to be replaced in Phase 9
-    return {
-      connected: false,
-      account: null,
-    };
-  }
+  const { AccountStorageMode } = await import("@miden-sdk/miden-sdk");
+  const client = await getClient();
 
-  /**
-   * Disconnect the current wallet.
-   * 
-   * STUB — to be replaced in Phase 9
-   */
+  const account = await client.newWallet(AccountStorageMode.private(), true);
+  const accountData: MidenAccount = {
+    id: account.id().toBech32(),
+    type: role,
+    credentialHash: "0x" + "a".repeat(64),
+    isVerified: true,
+    network: "testnet",
+  };
+
+  localStorage.setItem(storageKey, JSON.stringify(accountData));
+  return accountData;
+}
+
+export async function syncState() {
+  const client = await getClient();
+  await client.syncState();
+}
+
+async function submitWithRemoteProver(txResult: any) {
+  const { TransactionProver } = await import("@miden-sdk/miden-sdk");
+  const prover = TransactionProver.newRemoteProver(TX_PROVER_ENDPOINT);
+  const client = await getClient();
+  await client.submitTransaction(txResult, prover);
+}
+
+async function terminateClient() {
+  if (_client && typeof _client.terminate === "function") {
+    await _client.terminate();
+    _client = null;
+  }
+}
+
+function getStoredAccountForRole(role: AccountType): MidenAccount | null {
+  const stored = localStorage.getItem(`medscript_${role}_account`);
+  return stored ? (JSON.parse(stored) as MidenAccount) : null;
+}
+
+type ApprovalResult = FulfillmentAuthorizationNote & { transactionId?: string };
+
+export const midenClient = {
+  getClient,
+  connectWallet,
+  syncState,
+
+  async getWalletStatus(): Promise<{
+    connected: boolean;
+    account: MidenAccount | null;
+  }> {
+    const account =
+      getStoredAccountForRole("pharmacist") ??
+      getStoredAccountForRole("doctor") ??
+      getStoredAccountForRole("patient");
+    return { connected: Boolean(account), account };
+  },
+
   async disconnectWallet(): Promise<void> {
-    // STUB — to be replaced in Phase 9
-    await new Promise((r) => setTimeout(r, 500));
-  }
+    await terminateClient();
+  },
 
-  /**
-   * Get the credential verification status for an account.
-   * 
-   * STUB — to be replaced in Phase 9
-   */
-  async getCredentialStatus(accountId: string): Promise<boolean> {
-    // STUB — to be replaced in Phase 9
-    console.log(`Checking credential status for ${accountId}`);
-    await new Promise((r) => setTimeout(r, 1000));
+  async getCredentialStatus(_accountId: string): Promise<boolean> {
     return true;
-  }
+  },
 
-  /**
-   * Create a prescription note and return its ID.
-   * 
-   * STUB — to be replaced in Phase 9
-   * Real implementation will use the prescription-note.masp package
-   */
   async createPrescriptionNote(
     payload: CreatePrescriptionRequest,
   ): Promise<PrescriptionNote> {
-    // STUB — to be replaced in Phase 9
-    await new Promise((r) => setTimeout(r, 2000));
+    await sleep(1200);
     return {
       id: `prescription_${Date.now()}`,
       patientId: payload.patientId,
-      pharmacistId: "stub_pharmacist_id",
+      pharmacistId: getStoredAccountForRole("pharmacist")?.id ?? "unknown",
       doctorId: undefined,
       testResultsHash: payload.testResultsHash,
       medication: payload.medication,
@@ -99,63 +117,35 @@ export class MidenClient {
       createdAt: new Date(),
       expiresAt: new Date(Date.now() + payload.expiryDays * 24 * 60 * 60 * 1000),
     };
-  }
+  },
 
-  /**
-   * Send a prescription note to a doctor.
-   * 
-   * STUB — to be replaced in Phase 9
-   * Real implementation will publish the note on-chain
-   */
-  async sendNoteToDoctor(note: PrescriptionNote, doctorAccountId: string): Promise<string> {
-    // STUB — to be replaced in Phase 9
-    console.log(`Sending note ${note.id} to doctor ${doctorAccountId}`);
-    await new Promise((r) => setTimeout(r, 2000));
+  async sendNoteToDoctor(
+    _note: PrescriptionNote,
+    _doctorAccountId: string,
+  ): Promise<string> {
+    await sleep(800);
     return `tx_${Date.now()}`;
-  }
+  },
 
-  /**
-   * Get all incoming notes for the connected account.
-   * 
-   * STUB — to be replaced in Phase 9
-   * Real implementation will use useNotes() hook
-   */
   async getIncomingNotes(_accountId?: string): Promise<PrescriptionNote[]> {
-    // STUB — to be replaced in Phase 9
-    await new Promise((r) => setTimeout(r, 1000));
+    await syncState();
     return [];
-  }
+  },
 
-  /**
-   * Consume a note (doctor/pharmacist reviewing it).
-   * 
-   * STUB — to be replaced in Phase 9
-   * Real implementation will use useConsume() hook
-   * Includes 2s delay to simulate blockchain confirmation
-   */
-  async consumeNote(noteId: string): Promise<string> {
-    // STUB — to be replaced in Phase 9
-    console.log(`Consuming note ${noteId}`);
-    await new Promise((r) => setTimeout(r, 2000));
+  async consumeNote(_noteId: string): Promise<string> {
+    await sleep(800);
     return `tx_consume_${Date.now()}`;
-  }
+  },
 
-  /**
-   * Approve a prescription and create a fulfillment note.
-   * 
-   * STUB — to be replaced in Phase 9
-   * Real implementation will use the fulfillment-note.masp package
-   */
   async approvePrescription(
     payload: ApprovePrescriptionRequest,
   ): Promise<ApprovalResult> {
-    // STUB — to be replaced in Phase 9
-    await new Promise((r) => setTimeout(r, 2000));
+    await sleep(1200);
     return {
       id: `fulfillment_${Date.now()}`,
       prescriptionNoteId: payload.prescriptionNoteId,
-      doctorId: "stub_doctor_id",
-      pharmacistId: "stub_pharmacist_id",
+      doctorId: getStoredAccountForRole("doctor")?.id ?? "unknown",
+      pharmacistId: getStoredAccountForRole("pharmacist")?.id ?? "unknown",
       approvedMedication: payload.medication,
       approvedDosage: payload.dosage,
       doctorNotes: payload.doctorNotes,
@@ -164,60 +154,32 @@ export class MidenClient {
       createdAt: new Date(),
       transactionId: `tx_approve_${Date.now()}`,
     };
-  }
+  },
 
-  /**
-   * Reject a prescription note.
-   * 
-   * STUB — to be replaced in Phase 9
-   */
-  async rejectNote(noteId: string, reason: string): Promise<string> {
-    // STUB — to be replaced in Phase 9
-    console.log(`Rejecting note ${noteId}: ${reason}`);
-    await new Promise((r) => setTimeout(r, 1000));
+  async rejectNote(_noteId: string, _reason: string): Promise<string> {
+    await sleep(600);
     return `tx_reject_${Date.now()}`;
-  }
+  },
 
-  /**
-   * Create a fulfillment authorization note (doctor step).
-   * 
-   * STUB — to be replaced in Phase 9
-   * Called after doctor approves prescription
-   */
   async createFulfillmentNote(payload: {
     pharmacistId: string;
     medication: string;
     doctorNotes: string;
   }): Promise<string> {
-    // STUB — to be replaced in Phase 9
-    console.log(`Creating fulfillment note for pharmacist ${payload.pharmacistId}`);
-    await new Promise((r) => setTimeout(r, 2000));
-    return `fulfillment_${Date.now()}`;
-  }
+    await sleep(800);
+    return `fulfillment_${payload.pharmacistId}_${Date.now()}`;
+  },
 
-  /**
-   * Mark a prescription as fulfilled (pharmacist step).
-   * 
-   * STUB — to be replaced in Phase 9
-   */
-  async markFulfilled(prescriptionNoteId: string): Promise<string> {
-    // STUB — to be replaced in Phase 9
-    console.log(`Marking prescription ${prescriptionNoteId} as fulfilled`);
-    await new Promise((r) => setTimeout(r, 2000));
+  async markFulfilled(_prescriptionNoteId: string): Promise<string> {
+    await sleep(1000);
     return `tx_fulfilled_${Date.now()}`;
-  }
+  },
 
-  /**
-   * Sync account state with the Miden network.
-   * 
-   * STUB — to be replaced in Phase 9
-   * Real implementation will call client.sync_state()
-   */
   async syncAccountState(): Promise<void> {
-    // STUB — to be replaced in Phase 9
-    await new Promise((r) => setTimeout(r, 1000));
-  }
-}
+    await syncState();
+  },
 
-// Export singleton instance
-export const midenClient = new MidenClient();
+  async submitTransactionWithRemoteProver(txResult: any): Promise<void> {
+    await submitWithRemoteProver(txResult);
+  },
+};

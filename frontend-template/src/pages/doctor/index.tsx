@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/useToast";
 import { midenClient } from "@/lib/miden/midenClient";
 import { Card } from "@/components/shared/Card";
 import { Badge } from "@/components/shared/Badge";
+import { Button } from "@/components/shared/Button";
 import { Clock, CheckCircle, AlertCircle, Inbox } from "lucide-react";
 import type { PrescriptionNote } from "@/types";
 
@@ -65,6 +66,7 @@ export function DoctorPage() {
   const { showToast } = useToast();
   const prevCount = useRef(0);
   const [lastSynced, setLastSynced] = useState<Date | null>(null);
+  const [syncing, setSyncing] = useState(false);
 
   // Prefer pharmacist-created prescriptions; fallback to static mock inbox.
   useEffect(() => {
@@ -109,6 +111,20 @@ export function DoctorPage() {
 
   const stats = useMemo(() => getStats(), [getStats, prescriptionInbox]);
 
+  const handleManualSync = async () => {
+    setSyncing(true);
+    try {
+      await midenClient.syncState();
+      await midenClient.getIncomingNotes(account?.id);
+      setLastSynced(new Date());
+      showToast("Synced with testnet.", "success");
+    } catch {
+      showToast("Sync failed. Please try again.", "error");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const getExpiryColor = (expiresAt: Date) => {
     const now = new Date();
     const hoursUntilExpiry = (expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60);
@@ -148,6 +164,11 @@ export function DoctorPage() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-text-primary">Doctor Portal</h1>
           <p className="text-text-secondary mt-1">Review and approve prescriptions from pharmacists</p>
+          <div className="mt-3">
+            <Button size="sm" variant="secondary" onClick={() => void handleManualSync()} isLoading={syncing}>
+              Sync inbox
+            </Button>
+          </div>
           <p className="text-xs text-text-tertiary mt-2">
             Last synced {lastSynced ? lastSynced.toLocaleTimeString() : "never"}
           </p>

@@ -1,18 +1,24 @@
 import { useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useWalletStore } from "@/store/walletStore";
-import { useWalletConnection } from "@/hooks/useWalletConnection";
-import { WalletMultiButton } from "@miden-sdk/miden-wallet-adapter";
 import { motion } from "framer-motion";
 import { Button } from "@/components/shared/Button";
 import { TESTNET_TRANSACTIONS } from "@/lib/mock/testnetAccounts";
+import { connectWallet } from "@/lib/miden/midenClient";
 
 export function ConnectPage() {
   const navigate = useNavigate();
-  const { connected, account, setConnected, setAccount } = useWalletStore();
-
-  // Sync wallet adapter state with app store
-  useWalletConnection();
+  const {
+    connected,
+    account,
+    connecting,
+    setConnected,
+    setAccount,
+    setConnecting,
+    setError,
+  } = useWalletStore();
+  const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
 
   // If already connected, redirect to dashboard
   useEffect(() => {
@@ -21,21 +27,24 @@ export function ConnectPage() {
     }
   }, [connected, account, navigate]);
 
-  const handleDevLogin = (role: "pharmacist" | "doctor" | "patient") => {
-    setAccount({
-      id:
-        role === "pharmacist"
-          ? "0x962c393e4be8b7002d78783908a73e"
-          : role === "doctor"
-            ? "0xce9a185139464d0077efb96d6dfaa3"
-            : "0x3a1b2c5d8e9f4a6b7c8d9e0f1a2b3c4d",
-      type: role,
-      credentialHash: "0x" + "a".repeat(64),
-      isVerified: true,
-      network: "testnet",
-    });
-    setConnected(true);
-    navigate(`/${role}`);
+  const handleConnect = async (role: "pharmacist" | "doctor" | "patient") => {
+    setError(null);
+    setConnecting(true);
+    setLoadingMessage("Initializing Miden client...");
+
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      setLoadingMessage("Creating your account on testnet...");
+      const accountData = await connectWallet(role);
+      setAccount(accountData);
+      setConnected(true);
+      navigate(`/${role}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setConnecting(false);
+      setLoadingMessage(null);
+    }
   };
 
   return (
@@ -53,10 +62,38 @@ export function ConnectPage() {
           </p>
         </div>
 
-        {/* Wallet Connect Button */}
+        {/* Role-based connection */}
         <div className="card mb-8">
-          <div className="flex justify-center">
-            <WalletMultiButton />
+          <div className="space-y-3">
+            <Button
+              className="w-full"
+              onClick={() => void handleConnect("pharmacist")}
+              isLoading={connecting}
+              disabled={connecting}
+            >
+              Connect as Pharmacist
+            </Button>
+            <Button
+              className="w-full"
+              variant="secondary"
+              onClick={() => void handleConnect("doctor")}
+              isLoading={connecting}
+              disabled={connecting}
+            >
+              Connect as Doctor
+            </Button>
+            <Button
+              className="w-full"
+              variant="secondary"
+              onClick={() => void handleConnect("patient")}
+              isLoading={connecting}
+              disabled={connecting}
+            >
+              Connect as Patient
+            </Button>
+            {loadingMessage && (
+              <p className="text-sm text-text-secondary text-center pt-1">{loadingMessage}</p>
+            )}
           </div>
         </div>
 
@@ -88,28 +125,13 @@ export function ConnectPage() {
             <p className="text-xs text-text-tertiary text-center mb-3">
               Dev Mode — Quick login (bypasses wallet)
             </p>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => handleDevLogin("pharmacist")}
-              className="w-full"
-            >
+            <Button variant="secondary" size="sm" onClick={() => void handleConnect("pharmacist")} className="w-full">
               Login as Pharmacist
             </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => handleDevLogin("doctor")}
-              className="w-full"
-            >
+            <Button variant="secondary" size="sm" onClick={() => void handleConnect("doctor")} className="w-full">
               Login as Doctor
             </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => handleDevLogin("patient")}
-              className="w-full"
-            >
+            <Button variant="secondary" size="sm" onClick={() => void handleConnect("patient")} className="w-full">
               Login as Patient
             </Button>
           </div>
