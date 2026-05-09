@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   useSyncState,
   useAccount,
@@ -8,26 +8,6 @@ import {
   useWallet,
   Transaction,
 } from "@miden-sdk/miden-wallet-adapter";
-import {
-  TransactionRequestBuilder,
-  Package,
-  NoteScript,
-  Note,
-  NoteAssets,
-  NoteMetadata,
-  NoteRecipient,
-  NoteInputs,
-  NoteTag,
-  NoteType,
-  NoteAttachment,
-  NoteExecutionHint,
-  OutputNote,
-  OutputNoteArray,
-  AccountId,
-  Felt,
-  FeltArray,
-  Word,
-} from "@miden-sdk/miden-sdk";
 import { randomWord } from "@/lib/miden";
 import {
   COUNTER_SLOT_NAME,
@@ -51,17 +31,26 @@ export function useIncrementCounter(counterAddress: string) {
     importAccount({ type: "id", accountId: counterAddress }).catch(() => {});
   }, [importAccount, counterAddress]);
 
+  const [count, setCount] = useState<number | null>(null);
+
   // Read count from StorageMap
-  const count = useMemo(() => {
-    if (!account) return null;
-    const countKey = Word.newFromFelts([
-      new Felt(0n),
-      new Felt(0n),
-      new Felt(0n),
-      new Felt(1n),
-    ]);
-    const value = account.storage().getMapItem(COUNTER_SLOT_NAME, countKey);
-    return value ? Number(value.toU64s()[3]) : 0;
+  useEffect(() => {
+    const updateCount = async () => {
+      if (!account) {
+        setCount(null);
+        return;
+      }
+      const { Felt, Word } = await import("@miden-sdk/miden-sdk");
+      const countKey = Word.newFromFelts([
+        new Felt(0n),
+        new Felt(0n),
+        new Felt(0n),
+        new Felt(1n),
+      ]);
+      const value = account.storage().getMapItem(COUNTER_SLOT_NAME, countKey);
+      setCount(value ? Number(value.toU64s()[3]) : 0);
+    };
+    updateCount();
   }, [account]);
 
   const increment = useCallback(async () => {
@@ -69,6 +58,26 @@ export function useIncrementCounter(counterAddress: string) {
     setError(null);
     setIsSubmitting(true);
     try {
+      // Dynamic import of SDK to avoid WASM initialization errors
+      const {
+        TransactionRequestBuilder,
+        Package,
+        NoteScript,
+        Note,
+        NoteAssets,
+        NoteMetadata,
+        NoteRecipient,
+        NoteInputs,
+        NoteTag,
+        NoteType,
+        NoteAttachment,
+        NoteExecutionHint,
+        OutputNote,
+        OutputNoteArray,
+        AccountId,
+        FeltArray,
+      } = await import("@miden-sdk/miden-sdk");
+
       // Load pre-compiled increment-note package
       const buf = await fetch("/packages/increment_note.masp").then((r) =>
         r.arrayBuffer(),
@@ -80,7 +89,7 @@ export function useIncrementCounter(counterAddress: string) {
       const walletAccountId = AccountId.fromBech32(walletAddress);
 
       // Build note recipient
-      const serialNum = randomWord();
+      const serialNum = await randomWord();
       const inputs = new NoteInputs(new FeltArray());
       const recipient = new NoteRecipient(serialNum, noteScript, inputs);
 
