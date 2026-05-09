@@ -1,9 +1,27 @@
 {
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Cross-Origin-Opener-Policy",
+          "value": "same-origin"
+        },
+        {
+          "key": "Cross-Origin-Embedder-Policy",
+          "value": "require-corp"
+        },
+        {
+          "key": "Cross-Origin-Resource-Policy",
+          "value": "cross-origin"
+        }
+      ]
+    }
+  ],
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/" }
+  ],
   "buildCommand": "yarn build",
   "outputDirectory": "dist",
-  "installCommand": "yarn install",
-  "framework": "vite",
-  "rewrites": [
-    { "source": "(.*)", "destination": "/" }
-  ]
+  "framework": "vite"
 }
