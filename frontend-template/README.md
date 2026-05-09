@@ -43,9 +43,8 @@ Pre-compiled `.masp` packages for the counter account and increment note are in 
 | Package | Purpose |
 |---------|---------|
 | `@miden-sdk/react` | React hooks for Miden (useAccount, useSyncState, useImportAccount, etc.) |
-| `@miden-sdk/miden-sdk` | Core SDK types (Note, NoteScript, AccountId, Word, etc.) |
+| `@miden-sdk/miden-sdk` | Core SDK + WebClient for account creation, sync, proving, and transactions |
 | `@miden-sdk/vite-plugin` | Vite plugin handling WASM loading, top-level await, and COOP/COEP |
-| `@miden-sdk/miden-wallet-adapter` | MidenFi wallet adapter for transaction submission |
 
 ## Configuration
 

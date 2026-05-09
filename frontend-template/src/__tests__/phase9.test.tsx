@@ -108,7 +108,7 @@ describe("Phase 9: Final integration", () => {
     const link = screen.getByRole("link", { name: /view on explorer/i });
     expect(link).toHaveAttribute(
       "href",
-      "https://testnet.midenscan.com/transaction/tx_abc123",
+      "https://testnet.midenscan.com/tx/tx_abc123",
     );
   });
 
@@ -172,7 +172,7 @@ describe("Phase 9: Final integration", () => {
       expect(screen.getByText("tx_approve_1")).toBeInTheDocument();
       expect(screen.getByRole("link", { name: /view on explorer/i })).toHaveAttribute(
         "href",
-        "https://testnet.midenscan.com/transaction/tx_approve_1",
+        "https://testnet.midenscan.com/tx/tx_approve_1",
       );
     });
   });

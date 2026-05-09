@@ -1,5 +1,4 @@
 import { useMiden, useSyncState } from "@miden-sdk/react";
-import { WalletMultiButton } from "@miden-sdk/miden-wallet-adapter";
 import reactLogo from "@/assets/react.svg";
 import midenLogo from "@/assets/miden.svg";
 import viteLogo from "/vite.svg";
@@ -38,7 +37,7 @@ export function AppContent() {
       </div>
       <h1>Vite + React + Miden</h1>
       <div className="wallet-section">
-        <WalletMultiButton />
+        <p>Use MedScript Connect to create a testnet account.</p>
       </div>
       <Counter />
       <p className="read-the-docs">

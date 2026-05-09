@@ -1,18 +1,27 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useWalletStore } from "@/store/walletStore";
-import { useWalletConnection } from "@/hooks/useWalletConnection";
-import { WalletMultiButton } from "@miden-sdk/miden-wallet-adapter";
 import { motion } from "framer-motion";
 import { Button } from "@/components/shared/Button";
 import { TESTNET_TRANSACTIONS } from "@/lib/mock/testnetAccounts";
+import { connectWallet } from "@/lib/miden/midenClient";
+
+type LoadingStage = "idle" | "initializing" | "creating";
 
 export function ConnectPage() {
   const navigate = useNavigate();
-  const { connected, account, setConnected, setAccount } = useWalletStore();
-
-  // Sync wallet adapter state with app store
-  useWalletConnection();
+  const {
+    connected,
+    account,
+    connecting,
+    error,
+    setConnected,
+    setAccount,
+    setConnecting,
+    setError,
+  } = useWalletStore();
+  const [loadingStage, setLoadingStage] = useState<LoadingStage>("idle");
+  const [retryRole, setRetryRole] = useState<"pharmacist" | "doctor" | "patient" | null>(null);
 
   // If already connected, redirect to dashboard
   useEffect(() => {
@@ -21,21 +30,25 @@ export function ConnectPage() {
     }
   }, [connected, account, navigate]);
 
-  const handleDevLogin = (role: "pharmacist" | "doctor" | "patient") => {
-    setAccount({
-      id:
-        role === "pharmacist"
-          ? "0x962c393e4be8b7002d78783908a73e"
-          : role === "doctor"
-            ? "0xce9a185139464d0077efb96d6dfaa3"
-            : "0x3a1b2c5d8e9f4a6b7c8d9e0f1a2b3c4d",
-      type: role,
-      credentialHash: "0x" + "a".repeat(64),
-      isVerified: true,
-      network: "testnet",
-    });
-    setConnected(true);
-    navigate(`/${role}`);
+  const handleConnect = async (role: "pharmacist" | "doctor" | "patient") => {
+    setRetryRole(role);
+    setError(null);
+    setConnecting(true);
+    setLoadingStage("initializing");
+
+    try {
+      await new Promise((resolve) => window.setTimeout(resolve, 100));
+      setLoadingStage("creating");
+      const accountData = await connectWallet(role);
+      setAccount(accountData);
+      setConnected(true);
+      navigate(`/${role}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setConnecting(false);
+      setLoadingStage("idle");
+    }
   };
 
   return (
@@ -53,10 +66,58 @@ export function ConnectPage() {
           </p>
         </div>
 
-        {/* Wallet Connect Button */}
+        {/* Role-based connection */}
         <div className="card mb-8">
-          <div className="flex justify-center">
-            <WalletMultiButton />
+          <div className="space-y-3">
+            <Button
+              className="w-full"
+              onClick={() => void handleConnect("pharmacist")}
+              isLoading={connecting}
+              disabled={connecting}
+            >
+              Connect as Pharmacist
+            </Button>
+            <Button
+              className="w-full"
+              variant="secondary"
+              onClick={() => void handleConnect("doctor")}
+              isLoading={connecting}
+              disabled={connecting}
+            >
+              Connect as Doctor
+            </Button>
+            <Button
+              className="w-full"
+              variant="secondary"
+              onClick={() => void handleConnect("patient")}
+              isLoading={connecting}
+              disabled={connecting}
+            >
+              Connect as Patient
+            </Button>
+            {connecting && (
+              <div
+                className="rounded-lg border border-border-default bg-surface-sunken p-3 text-sm text-text-secondary text-center"
+                aria-live="polite"
+              >
+                {loadingStage === "initializing" && "Initializing Miden client..."}
+                {loadingStage === "creating" && "Creating your account on testnet..."}
+              </div>
+            )}
+            {error && (
+              <div className="rounded-lg border border-status-high/30 bg-status-high/10 p-3 text-sm">
+                <p className="text-status-high mb-2">{error}</p>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="w-full"
+                  onClick={() => retryRole && void handleConnect(retryRole)}
+                  disabled={!retryRole || connecting}
+                >
+                  Retry
+                </Button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -88,28 +149,13 @@ export function ConnectPage() {
             <p className="text-xs text-text-tertiary text-center mb-3">
               Dev Mode — Quick login (bypasses wallet)
             </p>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => handleDevLogin("pharmacist")}
-              className="w-full"
-            >
+            <Button variant="secondary" size="sm" onClick={() => void handleConnect("pharmacist")} className="w-full">
               Login as Pharmacist
             </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => handleDevLogin("doctor")}
-              className="w-full"
-            >
+            <Button variant="secondary" size="sm" onClick={() => void handleConnect("doctor")} className="w-full">
               Login as Doctor
             </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => handleDevLogin("patient")}
-              className="w-full"
-            >
+            <Button variant="secondary" size="sm" onClick={() => void handleConnect("patient")} className="w-full">
               Login as Patient
             </Button>
           </div>
