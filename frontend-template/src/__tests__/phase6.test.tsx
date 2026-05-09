@@ -4,12 +4,17 @@ import userEvent from "@testing-library/user-event";
 import App from "@/App";
 import { useWalletStore } from "@/store/walletStore";
 
-// Mock wallet hook
-const mockWallet = {
-  connected: false,
-  address: null as string | null,
-  disconnect: vi.fn(),
-};
+const {
+  mockConnectWallet,
+  mockDisconnectWallet,
+  mockSyncState,
+  mockGetIncomingNotes,
+} = vi.hoisted(() => ({
+  mockConnectWallet: vi.fn(),
+  mockDisconnectWallet: vi.fn(),
+  mockSyncState: vi.fn(),
+  mockGetIncomingNotes: vi.fn().mockResolvedValue([]),
+}));
 
 // Mock @miden-sdk/miden-wallet-adapter
 vi.mock("@miden-sdk/miden-wallet-adapter", () => ({
@@ -19,16 +24,16 @@ vi.mock("@miden-sdk/miden-wallet-adapter", () => ({
     children,
   WalletModalProvider: ({ children }: { children: React.ReactNode }) =>
     children,
-  WalletMultiButton: () => (
-    <button data-testid="wallet-connect-button">Connect Wallet</button>
-  ),
   MidenWallet: vi.fn(() => ({ name: "MidenWallet" })),
-  useWallet: () => mockWallet,
 }));
 
-// Mock useWalletConnection hook
-vi.mock("@/hooks/useWalletConnection", () => ({
-  useWalletConnection: () => mockWallet,
+vi.mock("@/lib/miden/midenClient", () => ({
+  connectWallet: (...args: unknown[]) => mockConnectWallet(...args),
+  midenClient: {
+    disconnectWallet: () => mockDisconnectWallet(),
+    syncState: () => mockSyncState(),
+    getIncomingNotes: (...args: unknown[]) => mockGetIncomingNotes(...args),
+  },
 }));
 
 // Mock @miden-sdk/react
@@ -47,17 +52,69 @@ describe("Phase 6: Wallet Integration & Protected Routes", () => {
       connecting: false,
       error: null,
     });
-    // Reset mock
-    mockWallet.connected = false;
-    mockWallet.address = null;
+    mockConnectWallet.mockReset();
+    mockDisconnectWallet.mockReset();
+    mockSyncState.mockReset();
+    mockGetIncomingNotes.mockReset().mockResolvedValue([]);
+    mockConnectWallet.mockImplementation(async (role: string) => ({
+      id: `0x${role}_account`,
+      type: role,
+      credentialHash: "0x" + "a".repeat(64),
+      isVerified: true,
+      network: "testnet",
+    }));
     vi.clearAllMocks();
   });
 
   describe("Wallet Connection Flow", () => {
-    it("should render /connect page with wallet button", () => {
+    it("should render /connect page with role buttons", () => {
       render(<App />);
-      expect(screen.getByTestId("wallet-connect-button")).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /connect as pharmacist/i }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /connect as doctor/i }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /connect as patient/i }),
+      ).toBeInTheDocument();
       expect(screen.getByText("MedScript")).toBeInTheDocument();
+    });
+
+    it("shows the two-stage loading state while connecting", async () => {
+      const user = userEvent.setup();
+      let resolveConnect: ((value: unknown) => void) | undefined;
+
+      mockConnectWallet.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveConnect = resolve;
+          }),
+      );
+
+      render(<App />);
+
+      await user.click(
+        screen.getByRole("button", { name: /connect as pharmacist/i }),
+      );
+
+      expect(screen.getByText("Initializing Miden client...")).toBeInTheDocument();
+
+      await waitFor(() => {
+        expect(screen.getByText("Creating your account on testnet...")).toBeInTheDocument();
+      });
+
+      resolveConnect?.({
+        id: "0x962c393e4be8b7002d78783908a73e",
+        type: "pharmacist",
+        credentialHash: "0x" + "a".repeat(64),
+        isVerified: true,
+        network: "testnet",
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText("Today's Queue")).toBeInTheDocument();
+      });
     });
 
     it("should show dev mode shortcuts in development", () => {
@@ -100,7 +157,7 @@ describe("Phase 6: Wallet Integration & Protected Routes", () => {
       await user.click(doctorBtn);
 
       await waitFor(() => {
-        expect(screen.getByText("Doctor")).toBeInTheDocument();
+        expect(screen.getByText("Doctor Portal")).toBeInTheDocument();
       });
     });
 
@@ -114,15 +171,11 @@ describe("Phase 6: Wallet Integration & Protected Routes", () => {
       await user.click(patientBtn);
 
       await waitFor(() => {
-        expect(screen.getByText("Patient")).toBeInTheDocument();
+        expect(screen.getByText("Patient Portal")).toBeInTheDocument();
       });
     });
 
     it("should redirect to dashboard when real wallet connects", async () => {
-      // Set up mock wallet as connected
-      mockWallet.connected = true;
-      mockWallet.address = "0x962c393e4be8b7002d78783908a73e";
-
       // Manually trigger the wallet store update (simulating useWalletConnection hook)
       useWalletStore.setState({
         connected: true,
@@ -146,7 +199,9 @@ describe("Phase 6: Wallet Integration & Protected Routes", () => {
   describe("Protected Routes", () => {
     it("should redirect unauthenticated user to /connect", async () => {
       render(<App />);
-      expect(screen.getByTestId("wallet-connect-button")).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /connect as pharmacist/i }),
+      ).toBeInTheDocument();
     });
 
     it("should show TopBar with account info on authenticated pages", async () => {
@@ -197,11 +252,13 @@ describe("Phase 6: Wallet Integration & Protected Routes", () => {
       });
       await user.click(disconnectBtn);
 
-      // Should call wallet.disconnect()
-      expect(mockWallet.disconnect).toHaveBeenCalled();
+      // Should call wallet.disconnectWallet()
+      expect(mockDisconnectWallet).toHaveBeenCalled();
 
       await waitFor(() => {
-        expect(screen.getByTestId("wallet-connect-button")).toBeInTheDocument();
+        expect(
+          screen.getByRole("button", { name: /connect as pharmacist/i }),
+        ).toBeInTheDocument();
       });
     });
 

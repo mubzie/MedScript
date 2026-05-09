@@ -53,11 +53,12 @@ export async function syncState() {
   await client.syncState();
 }
 
-async function submitWithRemoteProver(txResult: any) {
+async function submitWithRemoteProver(txResult: any): Promise<string> {
   const { TransactionProver } = await import("@miden-sdk/miden-sdk");
   const prover = TransactionProver.newRemoteProver(TX_PROVER_ENDPOINT);
   const client = await getClient();
-  await client.submitTransaction(txResult, prover);
+  const transactionId = await client.submitTransaction(txResult, prover);
+  return typeof transactionId === "string" ? transactionId : transactionId.toString();
 }
 
 async function terminateClient() {
@@ -179,7 +180,7 @@ export const midenClient = {
     await syncState();
   },
 
-  async submitTransactionWithRemoteProver(txResult: any): Promise<void> {
-    await submitWithRemoteProver(txResult);
+  async submitTransactionWithRemoteProver(txResult: any): Promise<string> {
+    return submitWithRemoteProver(txResult);
   },
 };

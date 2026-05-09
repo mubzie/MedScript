@@ -1,5 +1,4 @@
-import { useEffect } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useWalletStore } from "@/store/walletStore";
 import { motion } from "framer-motion";
@@ -7,18 +6,22 @@ import { Button } from "@/components/shared/Button";
 import { TESTNET_TRANSACTIONS } from "@/lib/mock/testnetAccounts";
 import { connectWallet } from "@/lib/miden/midenClient";
 
+type LoadingStage = "idle" | "initializing" | "creating";
+
 export function ConnectPage() {
   const navigate = useNavigate();
   const {
     connected,
     account,
     connecting,
+    error,
     setConnected,
     setAccount,
     setConnecting,
     setError,
   } = useWalletStore();
-  const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
+  const [loadingStage, setLoadingStage] = useState<LoadingStage>("idle");
+  const [retryRole, setRetryRole] = useState<"pharmacist" | "doctor" | "patient" | null>(null);
 
   // If already connected, redirect to dashboard
   useEffect(() => {
@@ -28,13 +31,14 @@ export function ConnectPage() {
   }, [connected, account, navigate]);
 
   const handleConnect = async (role: "pharmacist" | "doctor" | "patient") => {
+    setRetryRole(role);
     setError(null);
     setConnecting(true);
-    setLoadingMessage("Initializing Miden client...");
+    setLoadingStage("initializing");
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 50));
-      setLoadingMessage("Creating your account on testnet...");
+      await new Promise((resolve) => window.setTimeout(resolve, 100));
+      setLoadingStage("creating");
       const accountData = await connectWallet(role);
       setAccount(accountData);
       setConnected(true);
@@ -43,7 +47,7 @@ export function ConnectPage() {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setConnecting(false);
-      setLoadingMessage(null);
+      setLoadingStage("idle");
     }
   };
 
@@ -91,8 +95,28 @@ export function ConnectPage() {
             >
               Connect as Patient
             </Button>
-            {loadingMessage && (
-              <p className="text-sm text-text-secondary text-center pt-1">{loadingMessage}</p>
+            {connecting && (
+              <div
+                className="rounded-lg border border-border-default bg-surface-sunken p-3 text-sm text-text-secondary text-center"
+                aria-live="polite"
+              >
+                {loadingStage === "initializing" && "Initializing Miden client..."}
+                {loadingStage === "creating" && "Creating your account on testnet..."}
+              </div>
+            )}
+            {error && (
+              <div className="rounded-lg border border-status-high/30 bg-status-high/10 p-3 text-sm">
+                <p className="text-status-high mb-2">{error}</p>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="w-full"
+                  onClick={() => retryRole && void handleConnect(retryRole)}
+                  disabled={!retryRole || connecting}
+                >
+                  Retry
+                </Button>
+              </div>
             )}
           </div>
         </div>

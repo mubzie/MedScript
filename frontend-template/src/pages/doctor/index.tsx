@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { mockPrescriptionInbox } from "@/lib/mock/mockPrescriptionInbox";
 import { mockPatients } from "@/lib/mock/mockPatients";
@@ -87,43 +87,38 @@ export function DoctorPage() {
     prevCount.current = prescriptionInbox.length;
   }, [prescriptionInbox.length, showToast]);
 
-  useEffect(() => {
+  const refreshInbox = useCallback(async () => {
     if (!account?.id) return;
 
-    let mounted = true;
-
-    const pollInbox = async () => {
-      try {
-        await midenClient.getIncomingNotes(account.id);
-        if (mounted) setLastSynced(new Date());
-      } catch {
-        // Keep polling; sync issues are surfaced through per-action errors.
-      }
-    };
-
-    pollInbox();
-    const interval = window.setInterval(pollInbox, 30_000);
-    return () => {
-      mounted = false;
-      window.clearInterval(interval);
-    };
-  }, [account?.id]);
-
-  const stats = useMemo(() => getStats(), [getStats, prescriptionInbox]);
-
-  const handleManualSync = async () => {
     setSyncing(true);
     try {
       await midenClient.syncState();
-      await midenClient.getIncomingNotes(account?.id);
+      const incomingNotes = await midenClient.getIncomingNotes(account.id);
+
+      if (incomingNotes.length > 0) {
+        initializeInbox(incomingNotes.map(mapPrescriptionToInboxNote));
+      } else if (prescriptions.length > 0) {
+        initializeInbox(prescriptions.map(mapPrescriptionToInboxNote));
+      }
+
       setLastSynced(new Date());
-      showToast("Synced with testnet.", "success");
     } catch {
       showToast("Sync failed. Please try again.", "error");
     } finally {
       setSyncing(false);
     }
-  };
+  }, [
+    account?.id,
+    initializeInbox,
+    prescriptions,
+    showToast,
+  ]);
+
+  useEffect(() => {
+    void refreshInbox();
+  }, [refreshInbox]);
+
+  const stats = useMemo(() => getStats(), [getStats, prescriptionInbox]);
 
   const getExpiryColor = (expiresAt: Date) => {
     const now = new Date();
@@ -164,14 +159,14 @@ export function DoctorPage() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-text-primary">Doctor Portal</h1>
           <p className="text-text-secondary mt-1">Review and approve prescriptions from pharmacists</p>
-          <div className="mt-3">
-            <Button size="sm" variant="secondary" onClick={() => void handleManualSync()} isLoading={syncing}>
-              Sync inbox
+          <div className="mt-3 flex items-center gap-3 flex-wrap">
+            <Button size="sm" variant="secondary" onClick={() => void refreshInbox()} isLoading={syncing}>
+              Sync
             </Button>
+            <p className="text-xs text-text-tertiary">
+              Last synced {lastSynced ? lastSynced.toLocaleTimeString() : "never"}
+            </p>
           </div>
-          <p className="text-xs text-text-tertiary mt-2">
-            Last synced {lastSynced ? lastSynced.toLocaleTimeString() : "never"}
-          </p>
         </div>
 
         {/* Stats Bar */}

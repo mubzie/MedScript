@@ -123,5 +123,5 @@ export function buildAccountExplorerUrl(accountId: string) {
 }
 
 export function buildTransactionExplorerUrl(transactionHash: string) {
-  return `${EXPLORER_BASE_URL}/transaction/${transactionHash}`;
+  return `${EXPLORER_BASE_URL}/tx/${transactionHash}`;
 }
